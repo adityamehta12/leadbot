@@ -3,6 +3,13 @@ variable "project_id" {
   type        = string
 }
 
+variable "google_access_token" {
+  description = "Google OAuth2 access token (for local dev, set via TF_VAR or -var)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "region" {
   description = "GCP region"
   type        = string
