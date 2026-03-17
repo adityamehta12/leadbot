@@ -60,7 +60,7 @@
                 <td>{{ lead.contact or '—' }}</td>
                 <td>{{ lead.cleaning_type or '—' }}</td>
                 <td><span class="badge badge-{{ lead.status }}">{{ lead.status }}</span></td>
-                <td>{{ lead.created_at.strftime('%b %d, %Y %H:%M') if lead.created_at else '—' }}</td>
+                <td><time datetime="{{ lead.created_at.isoformat() if lead.created_at else '' }}">{{ lead.created_at.strftime('%b %d, %Y %H:%M UTC') if lead.created_at else '—' }}</time></td>
                 <td><a href="/dashboard/leads/{{ lead.id }}" class="btn btn-sm">View</a></td>
             </tr>
             {% endfor %}
@@ -102,5 +102,15 @@ if (dailyData.length > 0) {
         }
     });
 }
+// Convert UTC times to local timezone
+document.querySelectorAll('time[datetime]').forEach(el => {
+    const iso = el.getAttribute('datetime');
+    if (!iso) return;
+    const d = new Date(iso);
+    el.textContent = d.toLocaleString(undefined, {
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
+});
 </script>
 {% endblock %}
