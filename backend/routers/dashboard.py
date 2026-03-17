@@ -6,7 +6,11 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import select
+
+from config import GOOGLE_CLIENT_ID
 from db import get_session
+from models.webhook_log import WebhookDelivery
 from services.auth_service import decode_token, get_user_by_id
 from services.business_service import get_business_by_id, update_business
 from services.lead_service import get_lead_by_id, get_lead_stats, get_leads
@@ -117,6 +121,7 @@ async def settings_page(
         "request": request,
         "user": user,
         "business": business,
+        "google_client_configured": bool(GOOGLE_CLIENT_ID),
     })
 
 
@@ -152,10 +157,46 @@ async def update_settings(
         color=form.get("color") or business.color,
         greeting=form.get("greeting") or business.greeting,
         webhook_url=form.get("webhook_url") or business.webhook_url,
+        system_prompt=form.get("system_prompt") or None,
         notification_config=notification_config,
     )
 
     return RedirectResponse("/dashboard/settings?saved=1", status_code=303)
+
+
+@router.get("/dashboard/webhooks", response_class=HTMLResponse)
+async def webhooks_page(
+    request: Request,
+    token: str | None = Cookie(None),
+    db: AsyncSession = Depends(get_session),
+):
+    if not token:
+        return RedirectResponse("/login")
+    payload = decode_token(token)
+    if payload is None:
+        return RedirectResponse("/login")
+
+    user = await get_user_by_id(db, payload["sub"])
+    if user is None:
+        return RedirectResponse("/login")
+
+    business = await get_business_by_id(db, user.business_id)
+
+    result = await db.execute(
+        select(WebhookDelivery)
+        .where(WebhookDelivery.business_id == user.business_id)
+        .order_by(WebhookDelivery.created_at.desc())
+        .limit(100)
+    )
+    deliveries = result.scalars().all()
+
+    templates = request.app.state.templates
+    return templates.TemplateResponse("webhooks.html", {
+        "request": request,
+        "user": user,
+        "business": business,
+        "deliveries": deliveries,
+    })
 
 
 @router.get("/login", response_class=HTMLResponse)

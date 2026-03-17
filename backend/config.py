@@ -23,6 +23,10 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER", "")
 
+# ── Google Calendar OAuth ───────────────────────────────────
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+
 # ── Legacy single-tenant defaults (used as fallback) ────────
 BUSINESS_NAME = os.getenv("BUSINESS_NAME", "Sparkle Cleaning Co.")
 BUSINESS_COLOR = os.getenv("BUSINESS_COLOR", "#2563eb")

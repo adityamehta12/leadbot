@@ -8,6 +8,9 @@
 {% if request.query_params.get('saved') %}
 <div class="alert alert-success">Settings saved successfully.</div>
 {% endif %}
+{% if request.query_params.get('calendar') %}
+<div class="alert alert-success">Google Calendar connected successfully.</div>
+{% endif %}
 
 <form method="post" action="/dashboard/settings" class="settings-form">
     <div class="card">
@@ -27,11 +30,33 @@
     </div>
 
     <div class="card">
+        <h2>AI Behavior</h2>
+        <div class="form-group">
+            <label for="system_prompt">System Prompt</label>
+            <textarea id="system_prompt" name="system_prompt" rows="10" placeholder="Leave blank to use the default prompt">{{ business.system_prompt or '' }}</textarea>
+            <small>Customize how the AI assistant behaves. Leave blank to use the default cleaning service prompt.</small>
+        </div>
+    </div>
+
+    <div class="card">
         <h2>Integrations</h2>
         <div class="form-group">
             <label for="webhook_url">Webhook URL</label>
             <input type="url" id="webhook_url" name="webhook_url" value="{{ business.webhook_url or '' }}" placeholder="https://...">
             <small>Lead data will be POSTed to this URL on capture</small>
+        </div>
+        <div class="form-group">
+            <label>Google Calendar</label>
+            {% if business.google_calendar_id %}
+            <p style="color: #065f46; font-size: 14px;">Connected ({{ business.google_calendar_id }})</p>
+            {% else %}
+            {% if not google_client_configured %}
+            <p style="color: #94a3b8; font-size: 13px;">Google Calendar integration requires GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to be configured.</p>
+            {% else %}
+            <a href="/api/calendar/connect" class="btn btn-secondary">Connect Google Calendar</a>
+            {% endif %}
+            {% endif %}
+            <small>Connect your Google Calendar to let customers book appointments directly</small>
         </div>
     </div>
 
@@ -56,7 +81,7 @@
     <div class="card">
         <h2>Embed Code</h2>
         <div class="embed-code">
-            <code>&lt;script src="https://your-domain.com/static/widget.js" data-tenant-id="{{ business.slug }}"&gt;&lt;/script&gt;</code>
+            <code>&lt;script src="{{ request.base_url }}static/widget.js" data-tenant-id="{{ business.slug }}"&gt;&lt;/script&gt;</code>
         </div>
     </div>
 

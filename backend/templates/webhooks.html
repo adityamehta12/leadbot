@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Webhook Deliveries{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Webhook Deliveries</h1>
+</div>
+
+<div class="table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>URL</th>
+                <th>Status</th>
+                <th>Attempts</th>
+                <th>Last Error</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in deliveries %}
+            <tr>
+                <td title="{{ d.url }}">{{ d.url[:40] }}{% if d.url | length > 40 %}...{% endif %}</td>
+                <td>
+                    <span class="badge badge-{% if d.status == 'success' %}success{% elif d.status == 'pending' %}new{% else %}lost{% endif %}">{{ d.status }}</span>
+                </td>
+                <td>{{ d.attempts }}</td>
+                <td title="{{ d.last_error or '' }}">{{ (d.last_error or '—')[:40] }}{% if d.last_error and d.last_error | length > 40 %}...{% endif %}</td>
+                <td><time datetime="{{ d.created_at.isoformat() if d.created_at else '' }}">{{ d.created_at.strftime('%b %d, %Y %H:%M UTC') if d.created_at else '—' }}</time></td>
+            </tr>
+            {% endfor %}
+            {% if not deliveries %}
+            <tr><td colspan="5" class="empty-state">No webhook deliveries yet</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+document.querySelectorAll('time[datetime]').forEach(el => {
+    const iso = el.getAttribute('datetime');
+    if (!iso) return;
+    const d = new Date(iso);
+    el.textContent = d.toLocaleString(undefined, {
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
+});
+</script>
+{% endblock %}
