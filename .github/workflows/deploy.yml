@@ -1,0 +1,67 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGION: us-central1
+  SERVICE: leadbot-api
+  IMAGE: us-central1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/leadbot/leadbot-api
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push
+        run: |
+          docker build -f backend/Dockerfile -t ${{ env.IMAGE }}:${{ github.sha }} -t ${{ env.IMAGE }}:latest .
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:latest
+
+      - name: Run database migrations
+        run: |
+          # Use Cloud SQL Auth Proxy to connect from CI
+          gcloud components install cloud-sql-proxy --quiet 2>/dev/null || true
+
+          # Get the Cloud SQL instance connection name
+          INSTANCE=$(gcloud sql instances list --format='value(connectionName)' --filter='name~leadbot')
+
+          # Get DATABASE_URL from Secret Manager
+          DB_URL=$(gcloud secrets versions access latest --secret=database-url)
+
+          # Run migrations inside the built image using Cloud SQL Proxy
+          docker run --rm \
+            --network host \
+            -e DATABASE_URL="${DB_URL}" \
+            ${{ env.IMAGE }}:${{ github.sha }} \
+            python -m alembic upgrade head
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run services update ${{ env.SERVICE }} \
+            --region ${{ env.REGION }} \
+            --image ${{ env.IMAGE }}:${{ github.sha }}
+
+      - name: Smoke test
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE }} --region ${{ env.REGION }} --format 'value(status.url)')
+          curl -sf "${URL}/api/health" | grep -q '"status":"ok"'
+          echo "Health check passed: ${URL}"

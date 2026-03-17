@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Lead: {{ lead.name or 'Unknown' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <a href="/dashboard" class="btn btn-secondary">&larr; Back to leads</a>
+</div>
+
+<div class="detail-grid">
+    <!-- Lead info card -->
+    <div class="card">
+        <h2>{{ lead.name or 'Unknown' }}</h2>
+        <div class="detail-row">
+            <span class="detail-label">Contact</span>
+            <span>{{ lead.contact or '—' }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Type</span>
+            <span>{{ lead.cleaning_type or '—' }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Property Size</span>
+            <span>{{ lead.property_size or '—' }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Preferred Date</span>
+            <span>{{ lead.preferred_date or '—' }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Special Requests</span>
+            <span>{{ lead.special_requests or '—' }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Estimate</span>
+            <span>{{ lead.estimated_price_range or '—' }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Summary</span>
+            <span>{{ lead.summary or '—' }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Status</span>
+            <span class="badge badge-{{ lead.status }}">{{ lead.status }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Captured</span>
+            <span>{{ lead.created_at.strftime('%b %d, %Y %H:%M UTC') if lead.created_at else '—' }}</span>
+        </div>
+
+        <!-- Status update -->
+        <div class="status-update">
+            <label for="status-select">Update status:</label>
+            <select id="status-select" onchange="updateStatus(this.value)">
+                {% for s in ['new', 'contacted', 'qualified', 'converted', 'lost'] %}
+                <option value="{{ s }}" {% if lead.status == s %}selected{% endif %}>{{ s | capitalize }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <!-- Conversation transcript -->
+    <div class="card">
+        <h2>Conversation</h2>
+        <div class="transcript">
+            {% for msg in transcript %}
+            <div class="chat-bubble {{ msg.role }}">
+                <div class="bubble-role">{{ 'Customer' if msg.role == 'user' else business.name }}</div>
+                <div class="bubble-text">{{ msg.content }}</div>
+            </div>
+            {% endfor %}
+            {% if not transcript %}
+            <p class="empty-state">No transcript available</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+async function updateStatus(status) {
+    await fetch('/api/leads/{{ lead.id }}/status', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({status}),
+    });
+}
+</script>
+{% endblock %}

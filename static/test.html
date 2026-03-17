@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head><title>Textarea test</title></head>
+<body>
+<h3>Textarea auto-resize test</h3>
+<textarea id="t" rows="1" style="width:300px; min-height:40px; max-height:120px; overflow:hidden; resize:none; padding:10px 16px; font-size:14px; line-height:1.4; font-family:sans-serif; box-sizing:border-box;"></textarea>
+<script>
+const t = document.getElementById("t");
+t.addEventListener("input", () => {
+  t.style.height = "0px";
+  console.log("scrollHeight:", t.scrollHeight);
+  t.style.height = Math.max(40, Math.min(t.scrollHeight, 120)) + "px";
+});
+</script>
+</body>
+</html>

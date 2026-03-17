@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Business Settings</h1>
+</div>
+
+{% if request.query_params.get('saved') %}
+<div class="alert alert-success">Settings saved successfully.</div>
+{% endif %}
+
+<form method="post" action="/dashboard/settings" class="settings-form">
+    <div class="card">
+        <h2>General</h2>
+        <div class="form-group">
+            <label for="name">Business Name</label>
+            <input type="text" id="name" name="name" value="{{ business.name }}" required>
+        </div>
+        <div class="form-group">
+            <label for="color">Brand Color</label>
+            <input type="color" id="color" name="color" value="{{ business.color }}">
+        </div>
+        <div class="form-group">
+            <label for="greeting">Greeting Message</label>
+            <textarea id="greeting" name="greeting" rows="3">{{ business.greeting or '' }}</textarea>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Integrations</h2>
+        <div class="form-group">
+            <label for="webhook_url">Webhook URL</label>
+            <input type="url" id="webhook_url" name="webhook_url" value="{{ business.webhook_url or '' }}" placeholder="https://...">
+            <small>Lead data will be POSTed to this URL on capture</small>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Notifications</h2>
+        <div class="form-group">
+            <label for="notification_email">Notification Email</label>
+            <input type="email" id="notification_email" name="notification_email"
+                   value="{{ (business.notification_config or {}).get('email', '') }}"
+                   placeholder="owner@example.com">
+            <small>Receive email notifications when a lead is captured</small>
+        </div>
+        <div class="form-group">
+            <label for="notification_sms">Notification SMS</label>
+            <input type="tel" id="notification_sms" name="notification_sms"
+                   value="{{ (business.notification_config or {}).get('sms', '') }}"
+                   placeholder="+1234567890">
+            <small>Receive SMS notifications when a lead is captured</small>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Embed Code</h2>
+        <div class="embed-code">
+            <code>&lt;script src="https://your-domain.com/static/widget.js" data-tenant-id="{{ business.slug }}"&gt;&lt;/script&gt;</code>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save Settings</button>
+</form>
+{% endblock %}

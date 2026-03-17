@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Leads{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Leads</h1>
+    <a href="/api/leads/export/csv" class="btn btn-secondary">Export CSV</a>
+</div>
+
+<!-- Analytics cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.total_leads }}</div>
+        <div class="stat-label">Total Leads (30d)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.converted }}</div>
+        <div class="stat-label">Converted</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.conversion_rate }}%</div>
+        <div class="stat-label">Conversion Rate</div>
+    </div>
+</div>
+
+<!-- Chart -->
+<div class="chart-container">
+    <canvas id="leadsChart" height="200"></canvas>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+    <a href="/dashboard" class="filter-btn {% if not status_filter %}active{% endif %}">All</a>
+    <a href="/dashboard?status=new" class="filter-btn {% if status_filter == 'new' %}active{% endif %}">New</a>
+    <a href="/dashboard?status=contacted" class="filter-btn {% if status_filter == 'contacted' %}active{% endif %}">Contacted</a>
+    <a href="/dashboard?status=qualified" class="filter-btn {% if status_filter == 'qualified' %}active{% endif %}">Qualified</a>
+    <a href="/dashboard?status=converted" class="filter-btn {% if status_filter == 'converted' %}active{% endif %}">Converted</a>
+    <a href="/dashboard?status=lost" class="filter-btn {% if status_filter == 'lost' %}active{% endif %}">Lost</a>
+</div>
+
+<!-- Leads table -->
+<div class="table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Contact</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for lead in leads %}
+            <tr>
+                <td>{{ lead.name or '—' }}</td>
+                <td>{{ lead.contact or '—' }}</td>
+                <td>{{ lead.cleaning_type or '—' }}</td>
+                <td><span class="badge badge-{{ lead.status }}">{{ lead.status }}</span></td>
+                <td>{{ lead.created_at.strftime('%b %d, %Y %H:%M') if lead.created_at else '—' }}</td>
+                <td><a href="/dashboard/leads/{{ lead.id }}" class="btn btn-sm">View</a></td>
+            </tr>
+            {% endfor %}
+            {% if not leads %}
+            <tr><td colspan="6" class="empty-state">No leads yet</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if pages > 1 %}
+<div class="pagination">
+    {% if page > 1 %}<a href="/dashboard?page={{ page - 1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="btn btn-sm">&laquo; Prev</a>{% endif %}
+    <span class="page-info">Page {{ page }} of {{ pages }}</span>
+    {% if page < pages %}<a href="/dashboard?page={{ page + 1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="btn btn-sm">Next &raquo;</a>{% endif %}
+</div>
+{% endif %}
+
+<script>
+const dailyData = {{ stats.daily | tojson }};
+if (dailyData.length > 0) {
+    new Chart(document.getElementById('leadsChart'), {
+        type: 'bar',
+        data: {
+            labels: dailyData.map(d => d.date),
+            datasets: [{
+                label: 'Leads per day',
+                data: dailyData.map(d => d.count),
+                backgroundColor: '{{ business.color }}44',
+                borderColor: '{{ business.color }}',
+                borderWidth: 1,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+    });
+}
+</script>
+{% endblock %}

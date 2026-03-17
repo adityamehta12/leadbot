@@ -1,0 +1,15 @@
+venv/
+.env
+.env.local
+.git/
+.gitignore
+infra/
+__pycache__/
+*.pyc
+*.md
+.vscode/
+.idea/
+*.tfstate
+*.tfvars
+.terraform/
+.github/
