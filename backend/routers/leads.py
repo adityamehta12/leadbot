@@ -58,10 +58,11 @@ async def export_csv(
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Name", "Contact", "Type", "Size", "Date", "Price Range", "Status", "Created"])
+    writer.writerow(["Name", "Contact", "Type", "Size", "Address", "Zip", "Date", "Price Range", "Status", "Created"])
     for lead in leads:
         writer.writerow([
             lead.name, lead.contact, lead.cleaning_type, lead.property_size,
+            lead.address, lead.zip_code,
             lead.preferred_date, lead.estimated_price_range, lead.status,
             lead.created_at.isoformat() if lead.created_at else "",
         ])

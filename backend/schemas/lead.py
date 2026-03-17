@@ -14,6 +14,8 @@ class LeadResponse(BaseModel):
     special_requests: str | None
     estimated_price_range: str | None
     summary: str | None
+    address: str | None
+    zip_code: str | None
     status: str
     created_at: datetime
 

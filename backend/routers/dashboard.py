@@ -150,6 +150,35 @@ async def update_settings(
     if form.get("notification_sms"):
         notification_config["sms"] = form["notification_sms"]
 
+    # Business hours
+    hours_days = form.getlist("hours_days")
+    business_hours = {
+        "start": form.get("hours_start") or "09:00",
+        "end": form.get("hours_end") or "17:00",
+        "days": [int(d) for d in hours_days] if hours_days else [0, 1, 2, 3, 4],
+    }
+
+    # Service config
+    service_config = {"services": {}, "buffer_minutes": int(form.get("buffer_minutes") or 30)}
+    for key in ["regular", "deep_clean", "move_in_out", "office", "post_construction"]:
+        dur = form.get(f"svc_{key}_duration")
+        pmin = form.get(f"svc_{key}_min")
+        pmax = form.get(f"svc_{key}_max")
+        if dur or pmin or pmax:
+            service_config["services"][key] = {
+                "duration_minutes": int(dur) if dur else 120,
+                "price_min": int(pmin) if pmin else 0,
+                "price_max": int(pmax) if pmax else 0,
+            }
+
+    # Service areas
+    zip_text = form.get("service_zips", "").strip()
+    service_areas = None
+    if zip_text:
+        zips = [z.strip() for z in zip_text.split(",") if z.strip()]
+        if zips:
+            service_areas = {"zip_codes": zips}
+
     await update_business(
         db,
         business,
@@ -159,6 +188,10 @@ async def update_settings(
         webhook_url=form.get("webhook_url") or business.webhook_url,
         system_prompt=form.get("system_prompt") or None,
         notification_config=notification_config,
+        timezone=form.get("timezone") or business.timezone,
+        business_hours=business_hours,
+        service_config=service_config if service_config["services"] else None,
+        service_areas=service_areas,
     )
 
     return RedirectResponse("/dashboard/settings?saved=1", status_code=303)

@@ -80,6 +80,28 @@ def _resolve_system_prompt(biz_config: dict | None) -> str:
     else:
         base = SYSTEM_PROMPT
 
+    # Inject dynamic pricing if configured
+    if biz_config and biz_config.get("service_config"):
+        sc = biz_config["service_config"]
+        services = sc.get("services", {})
+        if services:
+            name_map = {
+                "regular": "Regular cleaning",
+                "deep_clean": "Deep clean",
+                "move_in_out": "Move-in/move-out",
+                "office": "Office cleaning",
+                "post_construction": "Post-construction",
+            }
+            lines = [f"  - {name_map.get(k, k.replace('_',' ').title())}: ${v['price_min']}-${v['price_max']}" for k, v in services.items()]
+            base += "\n\nPRICING OVERRIDE — Use these prices instead of any others:\n" + "\n".join(lines)
+
+    # Inject service area validation if configured
+    if biz_config and biz_config.get("service_areas"):
+        areas = biz_config["service_areas"]
+        zips = areas.get("zip_codes", [])
+        if zips:
+            base += f"\n\nSERVICE AREA: You ONLY serve these zip codes: {', '.join(zips)}. If the customer's zip code is not in this list, politely say: \"I'm sorry, we don't currently serve that area. We cover zip codes {', '.join(zips[:5])}{'...' if len(zips) > 5 else ''}.\" Do NOT capture a lead for out-of-area customers."
+
     # If calendar is connected, append booking instructions
     if biz_config and biz_config.get("google_calendar_id"):
         base += """
@@ -188,7 +210,7 @@ async def chat(req: ChatRequest, db: AsyncSession = Depends(get_session)):
                 # If calendar is connected, auto-offer slots for the preferred date
                 if biz_config.get("google_calendar_id"):
                     preferred = lead_data.get("preferred_date", "")
-                    slots = await _fetch_slots_for_lead(db, tenant_id, preferred)
+                    slots = await _fetch_slots_for_lead(db, tenant_id, preferred, cleaning_type=lead_data.get("cleaning_type", ""))
                     if slots:
                         yield f"data: {json.dumps({'type': 'calendar_slots', 'slots': slots, 'lead_id': str(lead.id), 'session_id': session_id})}\n\n"
 
@@ -212,7 +234,7 @@ async def chat(req: ChatRequest, db: AsyncSession = Depends(get_session)):
     return StreamingResponse(generate(), media_type="text/event-stream")
 
 
-async def _fetch_slots_for_lead(db: AsyncSession, tenant_id: str, preferred_date: str) -> list[dict]:
+async def _fetch_slots_for_lead(db: AsyncSession, tenant_id: str, preferred_date: str, cleaning_type: str = "") -> list[dict]:
     """Fetch available calendar slots. Tries the preferred date, falls back to next 3 business days."""
     from datetime import date, timedelta
 
@@ -245,7 +267,7 @@ async def _fetch_slots_for_lead(db: AsyncSession, tenant_id: str, preferred_date
     all_slots = []
     for target in target_dates:
         try:
-            slots = await get_available_slots(business, target.isoformat())
+            slots = await get_available_slots(business, target.isoformat(), cleaning_type=cleaning_type)
             all_slots.extend(slots)
         except Exception as e:
             print(f"Calendar slot fetch error: {e}")

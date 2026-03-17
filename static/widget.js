@@ -187,7 +187,16 @@
           <h3>Welcome!</h3>
           <p>Before we chat, please share your details so we can serve you better.</p>
           <input class="prechat-input" id="leadbot-prechat-name" placeholder="Your name" autocomplete="name">
-          <input class="prechat-input" id="leadbot-prechat-email" placeholder="Email address" type="email" autocomplete="email">
+          <input class="prechat-input" id="leadbot-prechat-email" placeholder="Email or phone" type="email" autocomplete="email">
+          <input class="prechat-input" id="leadbot-prechat-address" placeholder="Property address" autocomplete="street-address">
+          <select class="prechat-input" id="leadbot-prechat-service" style="color:#64748b">
+            <option value="">What type of cleaning?</option>
+            <option value="regular">Regular Cleaning</option>
+            <option value="deep_clean">Deep Clean</option>
+            <option value="move_in_out">Move In/Out</option>
+            <option value="office">Office Cleaning</option>
+            <option value="post_construction">Post-Construction</option>
+          </select>
           <button class="prechat-btn" id="leadbot-prechat-btn">Start Chat</button>
         </div>
         <div id="leadbot-messages" style="display:none"></div>
@@ -263,11 +272,11 @@
     // ── Pre-chat form ──
     if (prechatBtn) {
       prechatBtn.addEventListener("click", () => {
-        const nameInput = $("leadbot-prechat-name");
-        const emailInput = $("leadbot-prechat-email");
         preChatData = {
-          name: nameInput?.value?.trim() || "",
-          email: emailInput?.value?.trim() || "",
+          name: $("leadbot-prechat-name")?.value?.trim() || "",
+          email: $("leadbot-prechat-email")?.value?.trim() || "",
+          address: $("leadbot-prechat-address")?.value?.trim() || "",
+          service: $("leadbot-prechat-service")?.value || "",
         };
         startChat();
       });
@@ -574,12 +583,14 @@
       byDate[dateKey].push(slot);
     }
 
-    let html = "Pick a time that works for you:";
+    const tz = config.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const tzLabel = tz.replace("America/", "").replace("Pacific/", "").replace(/_/g, " ");
+    let html = `Pick a time (${tzLabel}):`;
     for (const [dateLabel, dateSlots] of Object.entries(byDate)) {
       html += `<div style="font-size:12px;font-weight:600;color:#64748b;margin-top:8px">${dateLabel}</div><div class='slot-grid'>`;
       for (const slot of dateSlots) {
         const start = new Date(slot.start);
-        const label = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const label = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: tz });
         html += `<button class="slot-btn" data-start="${slot.start}" data-end="${slot.end}">${label}</button>`;
       }
       html += "</div>";
@@ -672,7 +683,11 @@
       if (TENANT_ID) body.tenant_id = TENANT_ID;
       // Include pre-chat data in first message
       if (preChatData.name && !sessionId) {
-        body.message = `[My name is ${preChatData.name}${preChatData.email ? ` and my email is ${preChatData.email}` : ""}] ${text}`;
+        const parts = [`Name: ${preChatData.name}`];
+        if (preChatData.email) parts.push(`Contact: ${preChatData.email}`);
+        if (preChatData.address) parts.push(`Address: ${preChatData.address}`);
+        if (preChatData.service) parts.push(`Service: ${preChatData.service.replace("_", " ")}`);
+        body.message = `[${parts.join(", ")}] ${text}`;
       }
 
       const res = await fetch(`${API_BASE}/api/chat`, {
@@ -803,8 +818,12 @@
 
     const nameInput = $("leadbot-prechat-name");
     const emailInput = $("leadbot-prechat-email");
+    const addrInput = $("leadbot-prechat-address");
+    const svcInput = $("leadbot-prechat-service");
     if (nameInput) nameInput.value = "";
     if (emailInput) emailInput.value = "";
+    if (addrInput) addrInput.value = "";
+    if (svcInput) svcInput.value = "";
 
     const input = $("leadbot-text-input");
     if (input) { input.value = ""; input.style.height = "auto"; }

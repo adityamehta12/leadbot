@@ -89,6 +89,7 @@ Information to collect:
 4. Any special requests or areas of concern
 5. Customer name
 6. Phone number or email for follow-up
+7. Property address (street address and zip code for scheduling)
 
 Guidelines:
 - Be warm and conversational, not robotic
@@ -112,6 +113,8 @@ Guidelines:
   "preferred_date": "...",
   "special_requests": "...",
   "estimated_price_range": "...",
+  "address": "...",
+  "zip_code": "...",
   "summary": "one line summary of the job"
 }}
 </lead_data>

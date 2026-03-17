@@ -26,6 +26,10 @@ async def _cache_business(business: Business):
         "webhook_url": business.webhook_url,
         "google_calendar_id": business.google_calendar_id,
         "notification_config": business.notification_config,
+        "timezone": business.timezone,
+        "business_hours": business.business_hours,
+        "service_config": business.service_config,
+        "service_areas": business.service_areas,
     }
     await r.set(f"biz:{business.slug}", json.dumps(data), ex=CACHE_TTL)
 
@@ -72,6 +76,10 @@ async def get_business_config(db: AsyncSession, slug: str) -> dict | None:
         "webhook_url": biz.webhook_url,
         "google_calendar_id": biz.google_calendar_id,
         "notification_config": biz.notification_config,
+        "timezone": biz.timezone,
+        "business_hours": biz.business_hours,
+        "service_config": biz.service_config,
+        "service_areas": biz.service_areas,
     }
 
 

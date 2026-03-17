@@ -6,6 +6,7 @@ class ConfigResponse(BaseModel):
     color: str
     greeting: str
     has_calendar: bool = False
+    timezone: str = "America/New_York"
 
 
 class BusinessSettingsUpdate(BaseModel):

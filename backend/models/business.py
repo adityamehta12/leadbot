@@ -20,6 +20,10 @@ class Business(TimestampMixin, Base):
     google_calendar_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     google_oauth_token: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     notification_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    timezone: Mapped[str] = mapped_column(String(50), default="America/New_York")
+    business_hours: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    service_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    service_areas: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     users = relationship("BusinessUser", back_populates="business", cascade="all, delete-orphan")
     leads = relationship("Lead", back_populates="business", cascade="all, delete-orphan")

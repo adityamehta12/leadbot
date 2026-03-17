@@ -27,6 +27,64 @@
             <label for="greeting">Greeting Message</label>
             <textarea id="greeting" name="greeting" rows="3">{{ business.greeting or '' }}</textarea>
         </div>
+        <div class="form-group">
+            <label for="timezone">Timezone</label>
+            <select id="timezone" name="timezone">
+                {% set tz = business.timezone or 'America/New_York' %}
+                {% for t in ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'America/Phoenix', 'America/Anchorage', 'Pacific/Honolulu', 'America/Detroit', 'America/Indiana/Indianapolis', 'America/Boise'] %}
+                <option value="{{ t }}" {% if tz == t %}selected{% endif %}>{{ t.replace('America/', '').replace('Pacific/', '').replace('_', ' ') }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Business Hours</label>
+            {% set hours = business.business_hours or {"start":"09:00","end":"17:00","days":[0,1,2,3,4]} %}
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
+                <input type="time" name="hours_start" value="{{ hours.start }}" style="width:auto">
+                <span>to</span>
+                <input type="time" name="hours_end" value="{{ hours.end }}" style="width:auto">
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                {% for d, label in [(0,'Mon'),(1,'Tue'),(2,'Wed'),(3,'Thu'),(4,'Fri'),(5,'Sat'),(6,'Sun')] %}
+                <label style="font-size:13px;font-weight:normal;display:flex;align-items:center;gap:4px">
+                    <input type="checkbox" name="hours_days" value="{{ d }}" {% if d in hours.get('days', [0,1,2,3,4]) %}checked{% endif %}>
+                    {{ label }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Services &amp; Pricing</h2>
+        <small style="display:block;margin-bottom:12px;color:#64748b">Set duration and price range for each service type. The AI will use these for quoting.</small>
+        {% set sc = (business.service_config or {}).get('services', {}) %}
+        {% for key, label in [('regular','Regular Cleaning'),('deep_clean','Deep Clean'),('move_in_out','Move In/Out'),('office','Office'),('post_construction','Post-Construction')] %}
+        {% set svc = sc.get(key, {}) %}
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+            <span style="width:130px;font-size:13px;font-weight:600">{{ label }}</span>
+            <input type="number" name="svc_{{ key }}_duration" value="{{ svc.get('duration_minutes', '') }}" placeholder="mins" style="width:70px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px" title="Duration (minutes)">
+            <span style="font-size:12px;color:#94a3b8">min</span>
+            <span style="font-size:13px">$</span>
+            <input type="number" name="svc_{{ key }}_min" value="{{ svc.get('price_min', '') }}" placeholder="min" style="width:70px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px" title="Min price">
+            <span style="font-size:13px">–</span>
+            <input type="number" name="svc_{{ key }}_max" value="{{ svc.get('price_max', '') }}" placeholder="max" style="width:70px;padding:6px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:13px" title="Max price">
+        </div>
+        {% endfor %}
+        <div class="form-group" style="margin-top:12px">
+            <label for="buffer_minutes">Buffer between jobs (minutes)</label>
+            <input type="number" id="buffer_minutes" name="buffer_minutes" value="{{ (business.service_config or {}).get('buffer_minutes', 30) }}" style="width:80px">
+            <small>Travel time between appointments</small>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Service Area</h2>
+        <div class="form-group">
+            <label for="service_zips">Zip Codes Served</label>
+            <textarea id="service_zips" name="service_zips" rows="2" placeholder="02134, 02135, 02136">{{ (business.service_areas or {}).get('zip_codes', []) | join(', ') }}</textarea>
+            <small>Comma-separated zip codes. Leave blank to serve all areas. The AI will decline leads outside these zips.</small>
+        </div>
     </div>
 
     <div class="card">

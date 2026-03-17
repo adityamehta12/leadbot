@@ -21,6 +21,8 @@ class Lead(TimestampMixin, Base):
     special_requests: Mapped[str | None] = mapped_column(Text, nullable=True)
     estimated_price_range: Mapped[str | None] = mapped_column(String(255), nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    zip_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
     raw_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="new")
     conversation_transcript: Mapped[list | None] = mapped_column(JSONB, nullable=True)

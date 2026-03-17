@@ -22,6 +22,10 @@
             <span>{{ lead.property_size or '—' }}</span>
         </div>
         <div class="detail-row">
+            <span class="detail-label">Address</span>
+            <span>{{ lead.address or '—' }}{% if lead.zip_code %} ({{ lead.zip_code }}){% endif %}</span>
+        </div>
+        <div class="detail-row">
             <span class="detail-label">Preferred Date</span>
             <span>{{ lead.preferred_date or '—' }}</span>
         </div>

@@ -48,6 +48,7 @@
                 <th>Name</th>
                 <th>Contact</th>
                 <th>Type</th>
+                <th>Zip</th>
                 <th>Status</th>
                 <th>Date</th>
                 <th></th>
@@ -59,6 +60,7 @@
                 <td>{{ lead.name or '—' }}</td>
                 <td>{{ lead.contact or '—' }}</td>
                 <td>{{ lead.cleaning_type or '—' }}</td>
+                <td>{{ lead.zip_code or '—' }}</td>
                 <td><span class="badge badge-{{ lead.status }}">{{ lead.status }}</span></td>
                 <td><time datetime="{{ lead.created_at.isoformat() if lead.created_at else '' }}">{{ lead.created_at.strftime('%b %d, %Y %H:%M UTC') if lead.created_at else '—' }}</time></td>
                 <td><a href="/dashboard/leads/{{ lead.id }}" class="btn btn-sm">View</a></td>

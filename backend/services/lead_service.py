@@ -27,6 +27,8 @@ async def save_lead(
         special_requests=lead_data.get("special_requests"),
         estimated_price_range=lead_data.get("estimated_price_range"),
         summary=lead_data.get("summary"),
+        address=lead_data.get("address"),
+        zip_code=lead_data.get("zip_code"),
         raw_json=lead_data,
         status="new",
         conversation_transcript=transcript,
