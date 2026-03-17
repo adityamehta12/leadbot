@@ -3,17 +3,20 @@
 import json
 import re
 import uuid
+from datetime import datetime
 
 import anthropic
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import ANTHROPIC_API_KEY, ABUSE_LIMIT, SYSTEM_PROMPT
 from db import get_session
 from schemas.chat import ChatRequest, ResetRequest, TTSRequest
 from services import session_service
-from services.business_service import get_business_config
+from services.business_service import get_business_by_slug, get_business_config
+from services.calendar_service import get_available_slots
 from services.lead_service import save_lead
 from services.notification_service import notify_new_lead
 from services.webhook_service import dispatch_webhook
@@ -71,11 +74,26 @@ async def screen_message(message: str, session_id: str, business_name: str) -> s
 def _resolve_system_prompt(biz_config: dict | None) -> str:
     """Use business-specific system prompt if set, otherwise the default."""
     if biz_config and biz_config.get("system_prompt"):
-        return biz_config["system_prompt"]
-    if biz_config:
-        # Inject business name into default prompt
-        return SYSTEM_PROMPT.replace("Sparkle Cleaning Co.", biz_config["name"])
-    return SYSTEM_PROMPT
+        base = biz_config["system_prompt"]
+    elif biz_config:
+        base = SYSTEM_PROMPT.replace("Sparkle Cleaning Co.", biz_config["name"])
+    else:
+        base = SYSTEM_PROMPT
+
+    # If calendar is connected, append booking instructions
+    if biz_config and biz_config.get("google_calendar_id"):
+        base += """
+
+═══════════════════════════════════════════════
+APPOINTMENT BOOKING
+═══════════════════════════════════════════════
+This business has online booking enabled. After you have captured the lead data (included the <lead_data> tag), ALWAYS follow up by asking:
+"Would you like to book an appointment? I can show you available times."
+If the customer says yes, reply with EXACTLY this tag (nothing else around it):
+<offer_booking />
+The system will then display available time slots to the customer automatically. Do NOT make up times yourself."""
+
+    return base
 
 
 @router.post("/chat")
@@ -120,14 +138,15 @@ async def chat(req: ChatRequest, db: AsyncSession = Depends(get_session)):
         ) as stream:
             for text in stream.text_stream:
                 full_response += text
-                if "<lead_data>" not in full_response:
+                if "<lead_data>" not in full_response and "<offer_booking" not in full_response:
                     yield f"data: {json.dumps({'type': 'text', 'content': text, 'session_id': session_id})}\n\n"
 
-        # Extract lead data
+        # Extract lead data and clean tags
         lead_match = re.search(r"<lead_data>\s*(\{.*?\})\s*</lead_data>", full_response, re.DOTALL)
-        clean_response = re.sub(r"\s*<lead_data>.*?</lead_data>", "", full_response, flags=re.DOTALL).strip()
+        clean_response = re.sub(r"\s*<lead_data>.*?</lead_data>", "", full_response, flags=re.DOTALL)
+        clean_response = re.sub(r"\s*<offer_booking\s*/?\s*>", "", clean_response).strip()
 
-        if "<lead_data>" in full_response:
+        if "<lead_data>" in full_response or "<offer_booking" in full_response:
             yield f"data: {json.dumps({'type': 'text', 'content': clean_response, 'session_id': session_id})}\n\n"
 
         # Save assistant message
@@ -164,13 +183,118 @@ async def chat(req: ChatRequest, db: AsyncSession = Depends(get_session)):
                 # Notifications
                 await notify_new_lead(biz_config.get("notification_config"), lead_data, business_name)
 
-                yield f"data: {json.dumps({'type': 'lead_captured', 'lead': lead_data, 'session_id': session_id})}\n\n"
+                yield f"data: {json.dumps({'type': 'lead_captured', 'lead': lead_data, 'lead_id': str(lead.id), 'session_id': session_id})}\n\n"
+
+                # If calendar is connected, auto-offer slots for the preferred date
+                if biz_config.get("google_calendar_id"):
+                    preferred = lead_data.get("preferred_date", "")
+                    slots = await _fetch_slots_for_lead(db, tenant_id, preferred)
+                    if slots:
+                        yield f"data: {json.dumps({'type': 'calendar_slots', 'slots': slots, 'lead_id': str(lead.id), 'session_id': session_id})}\n\n"
+
             except json.JSONDecodeError:
                 pass
+
+        # Check if AI is requesting to show booking slots (post-lead-capture follow-up)
+        if "<offer_booking" in clean_response:
+            # Strip the tag from display
+            display_text = re.sub(r"\s*<offer_booking\s*/?\s*>", "", clean_response).strip()
+            if display_text:
+                # Re-send the cleaned text (the original was already sent with the tag)
+                pass
+            # Fetch slots
+            slots = await _fetch_slots_for_lead(db, tenant_id, "")
+            if slots:
+                yield f"data: {json.dumps({'type': 'calendar_slots', 'slots': slots, 'session_id': session_id})}\n\n"
 
         yield f"data: {json.dumps({'type': 'done', 'session_id': session_id})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+async def _fetch_slots_for_lead(db: AsyncSession, tenant_id: str, preferred_date: str) -> list[dict]:
+    """Fetch available calendar slots. Tries the preferred date, falls back to next 3 business days."""
+    from datetime import date, timedelta
+
+    business = await get_business_by_slug(db, tenant_id)
+    if not business or not business.google_calendar_id:
+        return []
+
+    # Try to parse preferred date, fall back to tomorrow
+    target_dates = []
+    if preferred_date:
+        # Try common formats
+        for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d", "%B %d", "%b %d"):
+            try:
+                parsed = datetime.strptime(preferred_date.strip(), fmt).date()
+                if parsed.year < 2000:
+                    parsed = parsed.replace(year=date.today().year)
+                target_dates.append(parsed)
+                break
+            except ValueError:
+                continue
+
+    if not target_dates:
+        # Fall back to next 3 business days
+        d = date.today() + timedelta(days=1)
+        while len(target_dates) < 3:
+            if d.weekday() < 5:  # Mon-Fri
+                target_dates.append(d)
+            d += timedelta(days=1)
+
+    all_slots = []
+    for target in target_dates:
+        try:
+            slots = await get_available_slots(business, target.isoformat())
+            all_slots.extend(slots)
+        except Exception as e:
+            print(f"Calendar slot fetch error: {e}")
+        if len(all_slots) >= 8:
+            break
+
+    return all_slots[:8]  # Cap at 8 slots to keep UI clean
+
+
+class BookSlotRequest(BaseModel):
+    tenant_id: str
+    lead_id: str
+    start_time: str  # ISO format
+    end_time: str
+    attendee_email: str
+
+
+@router.post("/book")
+async def book_appointment(req: BookSlotRequest, db: AsyncSession = Depends(get_session)):
+    """Book a calendar slot for a lead."""
+    from services.calendar_service import book_slot
+
+    business = await get_business_by_slug(db, req.tenant_id)
+    if not business:
+        raise HTTPException(status_code=404, detail="Business not found")
+
+    if not business.google_calendar_id:
+        raise HTTPException(status_code=400, detail="Calendar not connected")
+
+    start = datetime.fromisoformat(req.start_time)
+    end = datetime.fromisoformat(req.end_time)
+
+    booking = await book_slot(
+        db,
+        business=business,
+        lead_id=uuid.UUID(req.lead_id),
+        start_time=start,
+        end_time=end,
+        attendee_email=req.attendee_email,
+        summary=f"Cleaning Service — {business.name}",
+    )
+
+    return {
+        "status": "booked",
+        "booking_id": str(booking.id),
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "google_event_id": booking.google_event_id,
+    }
 
 
 @router.post("/tts")

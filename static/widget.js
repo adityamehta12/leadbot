@@ -31,6 +31,7 @@
   let audioContext = null;
   let preChatCompleted = false;
   let preChatData = {};
+  let lastLeadId = null;
 
   // ── Shadow DOM host ──────────────────────────────────────────
   let shadowRoot = null;
@@ -558,28 +559,92 @@
     return div;
   }
 
-  function renderCalendarSlots(slots) {
+  function renderCalendarSlots(slots, leadId) {
+    if (leadId) lastLeadId = leadId;
     const messages = $("leadbot-messages");
     const div = document.createElement("div");
     div.className = "leadbot-msg bot";
-    let html = "Available times:<div class='slot-grid'>";
+
+    // Group by date
+    const byDate = {};
     for (const slot of slots) {
-      const start = new Date(slot.start);
-      const label = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      html += `<button class="slot-btn" data-start="${slot.start}" data-end="${slot.end}">${label}</button>`;
+      const d = new Date(slot.start);
+      const dateKey = d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+      if (!byDate[dateKey]) byDate[dateKey] = [];
+      byDate[dateKey].push(slot);
     }
-    html += "</div>";
+
+    let html = "Pick a time that works for you:";
+    for (const [dateLabel, dateSlots] of Object.entries(byDate)) {
+      html += `<div style="font-size:12px;font-weight:600;color:#64748b;margin-top:8px">${dateLabel}</div><div class='slot-grid'>`;
+      for (const slot of dateSlots) {
+        const start = new Date(slot.start);
+        const label = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        html += `<button class="slot-btn" data-start="${slot.start}" data-end="${slot.end}">${label}</button>`;
+      }
+      html += "</div>";
+    }
     div.innerHTML = html;
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
 
-    // Wire up slot buttons
+    // Wire up slot buttons to book directly
     div.querySelectorAll(".slot-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const time = btn.textContent;
-        sendMessage(`I'd like to book the ${time} slot`);
-      });
+      btn.addEventListener("click", () => bookSlot(btn, div));
     });
+  }
+
+  async function bookSlot(btn, container) {
+    const start = btn.getAttribute("data-start");
+    const end = btn.getAttribute("data-end");
+    const email = preChatData.email || "";
+
+    if (!lastLeadId) {
+      addMessage("Sorry, something went wrong with booking. Please call us directly.", "bot");
+      return;
+    }
+
+    // Disable all slot buttons
+    container.querySelectorAll(".slot-btn").forEach((b) => {
+      b.disabled = true;
+      b.style.opacity = "0.5";
+      b.style.cursor = "default";
+    });
+    btn.style.opacity = "1";
+    btn.textContent = "Booking...";
+
+    try {
+      const res = await fetch(`${API_BASE}/api/book`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: TENANT_ID || "default",
+          lead_id: lastLeadId,
+          start_time: start,
+          end_time: end,
+          attendee_email: email || "customer@example.com",
+        }),
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      // Show confirmation
+      const time = new Date(start).toLocaleString(undefined, {
+        weekday: "short", month: "short", day: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      });
+      btn.textContent = "Booked!";
+      btn.style.background = "#059669";
+      btn.style.color = "white";
+      btn.style.borderColor = "#059669";
+
+      addMessage(`Your appointment is confirmed for ${time}. You'll receive a calendar invite at ${email || "your email"}. See you then!`, "bot");
+    } catch (e) {
+      console.error("Booking error:", e);
+      btn.textContent = "Failed";
+      addMessage("Sorry, I couldn't book that slot. Please try another time or call us directly.", "bot");
+    }
   }
 
   // ── SSE retry with backoff ──────────────────────────────────
@@ -655,11 +720,12 @@
 
           if (data.type === "lead_captured") {
             showLeadBanner();
+            if (data.lead_id) lastLeadId = data.lead_id;
             console.log("Lead captured:", data.lead);
           }
 
           if (data.type === "calendar_slots" && data.slots) {
-            renderCalendarSlots(data.slots);
+            renderCalendarSlots(data.slots, data.lead_id);
           }
         }
       }
