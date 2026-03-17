@@ -77,7 +77,8 @@ async def calendar_connect(
     if not GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=500, detail="Google OAuth not configured")
 
-    redirect_uri = str(request.base_url) + "api/calendar/callback"
+    base = str(request.base_url).replace("http://", "https://")
+    redirect_uri = base + "api/calendar/callback"
 
     params = urlencode({
         "client_id": GOOGLE_CLIENT_ID,
@@ -110,7 +111,8 @@ async def calendar_callback(
 
     business = await get_business_by_id(db, user.business_id)
 
-    redirect_uri = str(request.base_url) + "api/calendar/callback"
+    base = str(request.base_url).replace("http://", "https://")
+    redirect_uri = base + "api/calendar/callback"
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(
