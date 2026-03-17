@@ -22,12 +22,17 @@ def _run_migrations():
     try:
         from alembic import command
         from alembic.config import Config
+
+        sync_url = DATABASE_URL.replace("+asyncpg", "+psycopg2")
         alembic_cfg = Config(str(pathlib.Path(__file__).resolve().parent / "alembic.ini"))
-        alembic_cfg.set_main_option("sqlalchemy.url", DATABASE_URL.replace("+asyncpg", ""))
+        alembic_cfg.set_main_option("sqlalchemy.url", sync_url)
+        # Override env.py to use sync engine
         command.upgrade(alembic_cfg, "head")
         print("Migrations complete.")
     except Exception as e:
+        import traceback
         print(f"Migration warning: {e}")
+        traceback.print_exc()
 
 
 @asynccontextmanager
