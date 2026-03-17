@@ -15,8 +15,25 @@ from routers import auth, calendar, chat, config, dashboard, leads
 from services.webhook_service import webhook_retry_loop
 
 
+def _run_migrations():
+    """Run Alembic migrations on startup if DATABASE_URL is set."""
+    if not DATABASE_URL:
+        return
+    try:
+        from alembic import command
+        from alembic.config import Config
+        alembic_cfg = Config(str(pathlib.Path(__file__).resolve().parent / "alembic.ini"))
+        alembic_cfg.set_main_option("sqlalchemy.url", DATABASE_URL.replace("+asyncpg", ""))
+        command.upgrade(alembic_cfg, "head")
+        print("Migrations complete.")
+    except Exception as e:
+        print(f"Migration warning: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Run migrations on startup
+    _run_migrations()
     # Startup: launch background webhook retry loop
     retry_task = None
     if DATABASE_URL:

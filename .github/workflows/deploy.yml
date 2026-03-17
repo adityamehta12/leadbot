@@ -36,24 +36,6 @@ jobs:
           docker push ${{ env.IMAGE }}:${{ github.sha }}
           docker push ${{ env.IMAGE }}:latest
 
-      - name: Run database migrations
-        run: |
-          # Use Cloud SQL Auth Proxy to connect from CI
-          gcloud components install cloud-sql-proxy --quiet 2>/dev/null || true
-
-          # Get the Cloud SQL instance connection name
-          INSTANCE=$(gcloud sql instances list --format='value(connectionName)' --filter='name~leadbot')
-
-          # Get DATABASE_URL from Secret Manager
-          DB_URL=$(gcloud secrets versions access latest --secret=database-url)
-
-          # Run migrations inside the built image using Cloud SQL Proxy
-          docker run --rm \
-            --network host \
-            -e DATABASE_URL="${DB_URL}" \
-            ${{ env.IMAGE }}:${{ github.sha }} \
-            python -m alembic upgrade head
-
       - name: Deploy to Cloud Run
         run: |
           gcloud run services update ${{ env.SERVICE }} \
