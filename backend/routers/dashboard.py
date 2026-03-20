@@ -51,6 +51,7 @@ async def dashboard_page(
     request: Request,
     status: str | None = None,
     page: int = 1,
+    days: int | None = None,
     token: str | None = Cookie(None),
     db: AsyncSession = Depends(get_session),
 ):
@@ -68,7 +69,19 @@ async def dashboard_page(
     limit = 20
     offset = (page - 1) * limit
     leads, total = await get_leads(db, user.business_id, status=status, offset=offset, limit=limit)
-    stats = await get_lead_stats(db, user.business_id)
+    stat_days = days if days and days > 0 else (36500 if days == 0 else 30)
+    stats = await get_lead_stats(db, user.business_id, days=stat_days)
+
+    # Count follow-ups due
+    from sqlalchemy import func as sa_func
+    follow_up_result = await db.execute(
+        select(sa_func.count(Lead.id)).where(
+            Lead.business_id == user.business_id,
+            Lead.follow_up_at <= datetime.now(timezone.utc),
+            Lead.status.notin_(["converted", "lost"]),
+        )
+    )
+    stats["follow_up_due"] = follow_up_result.scalar() or 0
 
     templates = request.app.state.templates
     return templates.TemplateResponse("dashboard.html", {
@@ -81,6 +94,8 @@ async def dashboard_page(
         "pages": max(1, (total + limit - 1) // limit),
         "status_filter": status or "",
         "stats": stats,
+        "days": days,
+        "now": datetime.now(timezone.utc),
     })
 
 

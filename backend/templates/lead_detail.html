@@ -4,8 +4,7 @@
 <div class="page-header">
     <a href="/dashboard" class="btn btn-secondary">&larr; Back to leads</a>
     <div style="display:flex;gap:8px;">
-        <a href="/dashboard/leads/{{ lead.id }}/quote" class="btn btn-secondary" target="_blank">Generate Quote</a>
-        <button class="btn btn-primary" onclick="sendQuote()">Send Quote</button>
+        <a href="/api/leads/{{ lead.id }}/quote" class="btn btn-secondary" target="_blank">Generate Quote</a>
     </div>
 </div>
 
@@ -96,7 +95,7 @@
         <div id="revenue-section" class="revenue-section" style="{% if lead.status != 'converted' %}display:none{% endif %}">
             <label class="detail-label">Revenue ($)</label>
             <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
-                <input type="number" id="revenue-input" value="{{ lead.revenue or '' }}" placeholder="0.00" step="0.01" style="width:140px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                <input type="number" id="revenue-input" value="{{ lead.actual_value or '' }}" placeholder="0.00" step="0.01" style="width:140px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;">
                 <button class="btn btn-sm btn-primary" onclick="saveRevenue()">Save</button>
             </div>
         </div>
@@ -125,8 +124,8 @@
     <div class="notes-list">
         {% for note in notes %}
         <div class="note-item">
-            <div class="note-meta">{{ note.author_name or 'System' }} &mdash; <time datetime="{{ note.created_at.isoformat() if note.created_at else '' }}">{{ note.created_at.strftime('%b %d, %Y %H:%M UTC') if note.created_at else '' }}</time></div>
-            <div class="note-body">{{ note.content }}</div>
+            <div class="note-meta">{{ note.at or '' }}</div>
+            <div class="note-body">{{ note.text }}</div>
         </div>
         {% endfor %}
         {% if not notes %}
@@ -147,10 +146,10 @@
         <div class="message-item">
             <div class="message-meta">
                 <span class="badge" style="background:#e0e7ff;color:#4338ca;">{{ msg.channel }}</span>
-                <time datetime="{{ msg.sent_at.isoformat() if msg.sent_at else '' }}">{{ msg.sent_at.strftime('%b %d, %Y %H:%M UTC') if msg.sent_at else '' }}</time>
-                {% if msg.status %}<span class="badge badge-{{ msg.status }}">{{ msg.status }}</span>{% endif %}
+                <span class="badge" style="background:#dbeafe;color:#1d4ed8;">{{ msg.direction }}</span>
+                <time datetime="{{ msg.created_at.isoformat() if msg.created_at else '' }}">{{ msg.created_at.strftime('%b %d, %Y %H:%M UTC') if msg.created_at else '' }}</time>
             </div>
-            <div class="message-body">{{ msg.body }}</div>
+            <div class="message-body">{{ msg.content }}</div>
         </div>
         {% endfor %}
         {% if not messages %}
@@ -178,9 +177,8 @@
             <div class="timeline-content">
                 <div class="timeline-meta">
                     <time datetime="{{ event.created_at.isoformat() if event.created_at else '' }}">{{ event.created_at.strftime('%b %d, %Y %H:%M UTC') if event.created_at else '' }}</time>
-                    {% if event.user_name %}<span> &mdash; {{ event.user_name }}</span>{% endif %}
                 </div>
-                <div class="timeline-text">{{ event.description }}</div>
+                <div class="timeline-text">{{ event.action | replace('_', ' ') | capitalize }}{% if event.detail %}: {{ event.detail }}{% endif %}</div>
             </div>
         </div>
         {% endfor %}
@@ -232,43 +230,34 @@ async function clearFollowUp() {
 
 async function saveRevenue() {
     const val = parseFloat(document.getElementById('revenue-input').value) || 0;
-    await fetch('/api/leads/{{ lead.id }}/revenue', {
+    await fetch('/api/leads/{{ lead.id }}/value', {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({revenue: val}),
+        body: JSON.stringify({actual_value: val}),
     });
 }
 
 async function addNote() {
-    const content = document.getElementById('note-input').value.trim();
-    if (!content) return;
+    const text = document.getElementById('note-input').value.trim();
+    if (!text) return;
     await fetch('/api/leads/{{ lead.id }}/notes', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({content}),
+        body: JSON.stringify({text}),
     });
     window.location.reload();
 }
 
 async function sendMessage() {
-    const body = document.getElementById('msg-input').value.trim();
-    if (!body) return;
+    const content = document.getElementById('msg-input').value.trim();
+    if (!content) return;
     const channel = document.querySelector('input[name="msg-channel"]:checked').value;
-    await fetch('/api/leads/{{ lead.id }}/messages', {
+    await fetch('/api/leads/{{ lead.id }}/message', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({channel, body}),
+        body: JSON.stringify({channel, content}),
     });
     window.location.reload();
-}
-
-async function sendQuote() {
-    if (!confirm('Send quote to this lead via email?')) return;
-    await fetch('/api/leads/{{ lead.id }}/send-quote', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-    });
-    alert('Quote sent!');
 }
 </script>
 {% endblock %}

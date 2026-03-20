@@ -56,16 +56,19 @@
 <div class="card">
     <h2>Conversion Funnel</h2>
     <div class="funnel-chart">
-        {% set max_count = stats.funnel | map(attribute='count') | max or 1 %}
-        {% for step in stats.funnel %}
+        {% set max_count = stats.funnel.values() | max if stats.funnel.values() | list else 1 %}
+        {% for status_name in ['new', 'contacted', 'qualified', 'converted', 'lost'] %}
+        {% set count = stats.funnel.get(status_name, 0) %}
+        {% if count > 0 %}
         <div class="funnel-row">
-            <span class="funnel-label">{{ step.status | capitalize }}</span>
+            <span class="funnel-label">{{ status_name | capitalize }}</span>
             <div class="funnel-bar-wrap">
-                <div class="funnel-bar funnel-bar-{{ step.status }}" style="width: {{ (step.count / max_count * 100) | round }}%">
-                    <span class="funnel-count">{{ step.count }}</span>
+                <div class="funnel-bar funnel-bar-{{ status_name }}" style="width: {{ (count / max_count * 100) | round }}%">
+                    <span class="funnel-count">{{ count }}</span>
                 </div>
             </div>
         </div>
+        {% endif %}
         {% endfor %}
     </div>
 </div>
@@ -77,13 +80,13 @@
     <div class="card">
         <h2>By Service Type</h2>
         <table class="data-table">
-            <thead><tr><th>Service</th><th>Count</th><th>Revenue</th></tr></thead>
+            <thead><tr><th>Service</th><th>Leads</th><th>Converted</th></tr></thead>
             <tbody>
                 {% for row in stats.by_service %}
                 <tr>
                     <td>{{ row.service or 'Unknown' }}</td>
                     <td>{{ row.count }}</td>
-                    <td>${{ row.revenue or 0 }}</td>
+                    <td>{{ row.converted or 0 }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -94,13 +97,12 @@
     <div class="card">
         <h2>By Lead Source</h2>
         <table class="data-table">
-            <thead><tr><th>Source</th><th>Count</th><th>Converted</th></tr></thead>
+            <thead><tr><th>Source</th><th>Count</th></tr></thead>
             <tbody>
-                {% for row in stats.by_source %}
+                {% for source_name, count in stats.by_source.items() %}
                 <tr>
-                    <td>{{ row.source or 'Direct' }}</td>
-                    <td>{{ row.count }}</td>
-                    <td>{{ row.converted or 0 }}</td>
+                    <td>{{ source_name or 'Direct' }}</td>
+                    <td>{{ count }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -238,11 +240,11 @@ function updateBulkBar() {
 async function applyBulkStatus() {
     const status = document.getElementById('bulk-status').value;
     if (!status) return;
-    const ids = Array.from(document.querySelectorAll('.lead-cb:checked')).map(cb => cb.value);
+    const lead_ids = Array.from(document.querySelectorAll('.lead-cb:checked')).map(cb => cb.value);
     await fetch('/api/leads/bulk-status', {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ids, status}),
+        body: JSON.stringify({lead_ids, status}),
     });
     window.location.reload();
 }
