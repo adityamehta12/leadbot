@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quote — {{ business.name }}</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; color: #1e293b; line-height: 1.6; padding: 40px; }
+        .quote-page { max-width: 700px; margin: 0 auto; }
+        .quote-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 3px solid {{ business.color or '#2563eb' }}; }
+        .quote-brand h1 { font-size: 24px; font-weight: 700; color: {{ business.color or '#2563eb' }}; }
+        .quote-brand p { font-size: 13px; color: #64748b; }
+        .quote-meta { text-align: right; font-size: 14px; color: #64748b; }
+        .quote-meta strong { display: block; font-size: 20px; color: #1e293b; }
+        .quote-section { margin-bottom: 24px; }
+        .quote-section h2 { font-size: 16px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+        .quote-table { width: 100%; border-collapse: collapse; }
+        .quote-table th, .quote-table td { padding: 10px 16px; text-align: left; font-size: 14px; border-bottom: 1px solid #f1f5f9; }
+        .quote-table th { font-weight: 600; color: #64748b; font-size: 12px; text-transform: uppercase; background: #f8fafc; }
+        .quote-total { text-align: right; font-size: 18px; font-weight: 700; margin-top: 16px; padding-top: 16px; border-top: 2px solid #e2e8f0; }
+        .quote-total span { color: {{ business.color or '#2563eb' }}; }
+        .quote-footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #94a3b8; text-align: center; }
+        .print-btn { display: inline-block; padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; background: {{ business.color or '#2563eb' }}; color: #fff; border: none; cursor: pointer; margin-bottom: 24px; }
+        .print-btn:hover { opacity: 0.9; }
+        @media print {
+            .print-btn { display: none; }
+            body { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="quote-page">
+        <button class="print-btn" onclick="window.print()">Print Quote</button>
+
+        <div class="quote-header">
+            <div class="quote-brand">
+                <h1>{{ business.name }}</h1>
+                <p>{{ business.timezone or '' }}</p>
+            </div>
+            <div class="quote-meta">
+                <strong>QUOTE</strong>
+                <p>Date: {{ quote_date }}</p>
+                <p>Quote #: {{ lead.id[:8] }}</p>
+            </div>
+        </div>
+
+        <div class="quote-section">
+            <h2>Prepared For</h2>
+            <p><strong>{{ lead.name or 'Customer' }}</strong></p>
+            {% if lead.contact %}<p>{{ lead.contact }}</p>{% endif %}
+            {% if lead.address %}<p>{{ lead.address }}{% if lead.zip_code %}, {{ lead.zip_code }}{% endif %}</p>{% endif %}
+        </div>
+
+        <div class="quote-section">
+            <h2>Service Details</h2>
+            <table class="quote-table">
+                <thead>
+                    <tr>
+                        <th>Service</th>
+                        <th>Details</th>
+                        <th>Estimate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ lead.cleaning_type or 'Cleaning Service' }}</td>
+                        <td>
+                            {% if lead.property_size %}{{ lead.property_size }}{% endif %}
+                            {% if lead.special_requests %}<br>{{ lead.special_requests }}{% endif %}
+                        </td>
+                        <td>{{ lead.estimated_price_range or 'TBD' }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            {% if lead.estimated_price_range %}
+            <div class="quote-total">Estimated Total: <span>{{ lead.estimated_price_range }}</span></div>
+            {% endif %}
+        </div>
+
+        {% if lead.preferred_date %}
+        <div class="quote-section">
+            <h2>Preferred Schedule</h2>
+            <p>{{ lead.preferred_date }}</p>
+        </div>
+        {% endif %}
+
+        <div class="quote-footer">
+            <p>This quote is valid for 30 days from the date above.</p>
+            <p>{{ business.name }} &mdash; Thank you for your business!</p>
+        </div>
+    </div>
+</body>
+</html>

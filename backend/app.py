@@ -11,7 +11,8 @@ from fastapi.templating import Jinja2Templates
 from config import BUSINESS_COLOR, BUSINESS_NAME, DATABASE_URL, GREETING, PORT
 from db import dispose_engine
 from redis_client import close_redis
-from routers import auth, calendar, chat, config, dashboard, leads
+from routers import auth, billing, calendar, chat, config, dashboard, leads
+from services.followup_service import followup_loop
 from services.webhook_service import webhook_retry_loop
 
 
@@ -39,14 +40,22 @@ def _run_migrations():
 async def lifespan(app: FastAPI):
     # Run migrations on startup
     _run_migrations()
-    # Startup: launch background webhook retry loop
+    # Create static/uploads directory
+    _app_dir = pathlib.Path(__file__).resolve().parent
+    uploads_dir = _app_dir / "static" / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    # Startup: launch background tasks
     retry_task = None
+    followup_task = None
     if DATABASE_URL:
         retry_task = asyncio.create_task(webhook_retry_loop())
+        followup_task = asyncio.create_task(followup_loop())
     yield
     # Shutdown
     if retry_task:
         retry_task.cancel()
+    if followup_task:
+        followup_task.cancel()
     await close_redis()
     await dispose_engine()
 
@@ -85,6 +94,8 @@ def create_app() -> FastAPI:
     application.include_router(leads.router)
     application.include_router(calendar.router)
     application.include_router(dashboard.router)
+    application.include_router(billing.router)
+    application.include_router(auth.register_page_router)
 
     # ── Health check ─────────────────────────────────────────
     @application.get("/api/health")

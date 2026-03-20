@@ -7,6 +7,10 @@ class ConfigResponse(BaseModel):
     greeting: str
     has_calendar: bool = False
     timezone: str = "America/New_York"
+    business_hours: dict | None = None
+    after_hours_message: str | None = None
+    faq_entries: list | None = None
+    language: str = "en"
 
 
 class BusinessSettingsUpdate(BaseModel):

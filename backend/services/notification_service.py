@@ -85,3 +85,13 @@ async def send_transcript_email(to_email: str, transcript: list[dict], business_
     body = f"Here's a copy of your conversation with {business_name}:\n\n" + "\n\n".join(lines)
 
     await _send_email(to_email, f"Your conversation with {business_name}", body)
+
+
+async def send_message_to_lead(channel: str, to_address: str, content: str, business_name: str):
+    """Send an email or SMS message directly to a lead."""
+    if channel == "email":
+        await _send_email(to_address, f"Message from {business_name}", content)
+    elif channel == "sms":
+        await _send_sms(to_address, content[:160])
+    else:
+        raise ValueError(f"Unsupported channel: {channel}")

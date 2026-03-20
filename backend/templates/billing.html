@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Billing{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Billing</h1>
+</div>
+
+<div class="card" style="max-width:560px;">
+    <h2>Current Plan</h2>
+    {% set plan = business.plan or 'free' %}
+    <div class="plan-display">
+        <div class="plan-badge plan-badge-{{ plan }}">{{ plan | upper }}</div>
+        {% if plan == 'free' %}
+        <p style="margin-top:12px;font-size:14px;color:#64748b;">You are on the free plan. Upgrade to Pro for unlimited leads, team members, auto follow-ups, and advanced analytics.</p>
+        <div style="margin-top:16px;">
+            <a href="/api/billing/checkout" class="btn btn-primary">Upgrade to Pro</a>
+        </div>
+        {% else %}
+        <p style="margin-top:12px;font-size:14px;color:#065f46;">You are on the Pro plan. Thank you for your support!</p>
+        <div style="margin-top:16px;">
+            <a href="/api/billing/portal" class="btn btn-secondary">Manage Subscription</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card" style="max-width:560px;">
+    <h2>Plan Comparison</h2>
+    <table class="data-table">
+        <thead>
+            <tr><th>Feature</th><th>Free</th><th>Pro</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Leads per month</td><td>50</td><td>Unlimited</td></tr>
+            <tr><td>Team members</td><td>1</td><td>Unlimited</td></tr>
+            <tr><td>Auto follow-ups</td><td>—</td><td>Yes</td></tr>
+            <tr><td>Lead scoring</td><td>—</td><td>Yes</td></tr>
+            <tr><td>CSV export</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Custom branding</td><td>—</td><td>Yes</td></tr>
+            <tr><td>Priority support</td><td>—</td><td>Yes</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}

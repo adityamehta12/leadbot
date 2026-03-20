@@ -21,6 +21,7 @@ async def dispatch_webhook(
     business_id: uuid.UUID,
     url: str,
     payload: dict,
+    event_type: str = "lead.captured",
 ):
     """Create a webhook delivery record and attempt first delivery."""
     delivery = WebhookDelivery(
@@ -36,14 +37,15 @@ async def dispatch_webhook(
     await db.refresh(delivery)
 
     # Attempt immediate delivery
-    await _attempt_delivery(db, delivery)
+    await _attempt_delivery(db, delivery, event_type=event_type)
 
 
-async def _attempt_delivery(db: AsyncSession, delivery: WebhookDelivery):
+async def _attempt_delivery(db: AsyncSession, delivery: WebhookDelivery, event_type: str = "lead.captured"):
     delivery.attempts += 1
     try:
+        headers = {"X-LeadBot-Event": event_type}
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(delivery.url, json=delivery.payload)
+            resp = await client.post(delivery.url, json=delivery.payload, headers=headers)
             resp.raise_for_status()
         delivery.status = "success"
         delivery.last_error = None
@@ -85,3 +87,52 @@ async def webhook_retry_loop():
     while True:
         await asyncio.sleep(60)
         await retry_pending_webhooks()
+
+
+async def dispatch_event_webhooks(
+    db: AsyncSession,
+    business_id: uuid.UUID,
+    event_type: str,
+    payload: dict,
+    lead_id: uuid.UUID | None = None,
+):
+    """Dispatch webhooks for a specific event type.
+
+    Looks up event-specific webhook URLs from the business's notification_config.
+    notification_config can have a "webhooks" dict mapping event types to URLs, e.g.:
+    {
+        "webhooks": {
+            "lead.captured": "https://example.com/hook1",
+            "booking.created": "https://example.com/hook2",
+        }
+    }
+    """
+    from services.business_service import get_business_by_id
+
+    business = await get_business_by_id(db, business_id)
+    if business is None:
+        return
+
+    nc = business.notification_config or {}
+    webhooks_config = nc.get("webhooks", {})
+
+    # Check for event-specific URL
+    url = webhooks_config.get(event_type)
+    if not url:
+        # Fall back to the global webhook_url
+        url = business.webhook_url
+
+    if not url:
+        return
+
+    # Use a dummy lead_id if none provided
+    effective_lead_id = lead_id or uuid.UUID("00000000-0000-0000-0000-000000000000")
+
+    await dispatch_webhook(
+        db=db,
+        lead_id=effective_lead_id,
+        business_id=business_id,
+        url=url,
+        payload=payload,
+        event_type=event_type,
+    )

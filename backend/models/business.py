@@ -24,6 +24,12 @@ class Business(TimestampMixin, Base):
     business_hours: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     service_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     service_areas: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    after_hours_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    faq_entries: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    plan: Mapped[str] = mapped_column(String(20), default="free")
+    widget_language: Mapped[str] = mapped_column(String(5), default="en")
 
     users = relationship("BusinessUser", back_populates="business", cascade="all, delete-orphan")
     leads = relationship("Lead", back_populates="business", cascade="all, delete-orphan")

@@ -3,15 +3,37 @@
 {% block content %}
 <div class="page-header">
     <a href="/dashboard" class="btn btn-secondary">&larr; Back to leads</a>
+    <div style="display:flex;gap:8px;">
+        <a href="/dashboard/leads/{{ lead.id }}/quote" class="btn btn-secondary" target="_blank">Generate Quote</a>
+        <button class="btn btn-primary" onclick="sendQuote()">Send Quote</button>
+    </div>
 </div>
 
 <div class="detail-grid">
     <!-- Lead info card -->
     <div class="card">
         <h2>{{ lead.name or 'Unknown' }}</h2>
+
+        <!-- Score -->
+        {% if lead.score is not none %}
+        <div class="score-section">
+            <div class="detail-row">
+                <span class="detail-label">Lead Score</span>
+                <span class="score-value">{{ lead.score }}/100</span>
+            </div>
+            <div class="score-bar">
+                <div class="score-bar-fill {% if lead.score >= 70 %}score-high{% elif lead.score >= 40 %}score-med{% else %}score-low{% endif %}" style="width:{{ lead.score }}%"></div>
+            </div>
+        </div>
+        {% endif %}
+
         <div class="detail-row">
             <span class="detail-label">Contact</span>
             <span>{{ lead.contact or '—' }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Source</span>
+            <span>{{ lead.source or 'Direct' }}</span>
         </div>
         <div class="detail-row">
             <span class="detail-label">Type</span>
@@ -59,6 +81,25 @@
                 {% endfor %}
             </select>
         </div>
+
+        <!-- Follow-up date -->
+        <div class="follow-up-section">
+            <label class="detail-label">Follow-up Date</label>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+                <input type="datetime-local" id="follow-up-input" value="{{ lead.follow_up_at.strftime('%Y-%m-%dT%H:%M') if lead.follow_up_at else '' }}">
+                <button class="btn btn-sm btn-primary" onclick="setFollowUp()">Set</button>
+                <button class="btn btn-sm" onclick="clearFollowUp()">Clear</button>
+            </div>
+        </div>
+
+        <!-- Revenue (shown when converted) -->
+        <div id="revenue-section" class="revenue-section" style="{% if lead.status != 'converted' %}display:none{% endif %}">
+            <label class="detail-label">Revenue ($)</label>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+                <input type="number" id="revenue-input" value="{{ lead.revenue or '' }}" placeholder="0.00" step="0.01" style="width:140px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;">
+                <button class="btn btn-sm btn-primary" onclick="saveRevenue()">Save</button>
+            </div>
+        </div>
     </div>
 
     <!-- Conversation transcript -->
@@ -78,6 +119,77 @@
     </div>
 </div>
 
+<!-- Notes section -->
+<div class="card">
+    <h2>Notes</h2>
+    <div class="notes-list">
+        {% for note in notes %}
+        <div class="note-item">
+            <div class="note-meta">{{ note.author_name or 'System' }} &mdash; <time datetime="{{ note.created_at.isoformat() if note.created_at else '' }}">{{ note.created_at.strftime('%b %d, %Y %H:%M UTC') if note.created_at else '' }}</time></div>
+            <div class="note-body">{{ note.content }}</div>
+        </div>
+        {% endfor %}
+        {% if not notes %}
+        <p class="empty-state">No notes yet</p>
+        {% endif %}
+    </div>
+    <div class="note-form">
+        <textarea id="note-input" rows="2" placeholder="Add a note..." style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;font-family:inherit;margin-bottom:8px;"></textarea>
+        <button class="btn btn-primary btn-sm" onclick="addNote()">Add Note</button>
+    </div>
+</div>
+
+<!-- Messages section -->
+<div class="card">
+    <h2>Messages Sent</h2>
+    <div class="messages-list">
+        {% for msg in messages %}
+        <div class="message-item">
+            <div class="message-meta">
+                <span class="badge" style="background:#e0e7ff;color:#4338ca;">{{ msg.channel }}</span>
+                <time datetime="{{ msg.sent_at.isoformat() if msg.sent_at else '' }}">{{ msg.sent_at.strftime('%b %d, %Y %H:%M UTC') if msg.sent_at else '' }}</time>
+                {% if msg.status %}<span class="badge badge-{{ msg.status }}">{{ msg.status }}</span>{% endif %}
+            </div>
+            <div class="message-body">{{ msg.body }}</div>
+        </div>
+        {% endfor %}
+        {% if not messages %}
+        <p class="empty-state">No messages sent yet</p>
+        {% endif %}
+    </div>
+    <div class="message-form">
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+            <label style="font-size:14px;font-weight:600;">Channel:</label>
+            <label style="font-size:14px;"><input type="radio" name="msg-channel" value="email" checked> Email</label>
+            <label style="font-size:14px;"><input type="radio" name="msg-channel" value="sms"> SMS</label>
+        </div>
+        <textarea id="msg-input" rows="3" placeholder="Write a message..." style="width:100%;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;font-family:inherit;margin-bottom:8px;"></textarea>
+        <button class="btn btn-primary btn-sm" onclick="sendMessage()">Send Message</button>
+    </div>
+</div>
+
+<!-- Activity Timeline -->
+<div class="card">
+    <h2>Activity Timeline</h2>
+    <div class="activity-timeline">
+        {% for event in activity %}
+        <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+                <div class="timeline-meta">
+                    <time datetime="{{ event.created_at.isoformat() if event.created_at else '' }}">{{ event.created_at.strftime('%b %d, %Y %H:%M UTC') if event.created_at else '' }}</time>
+                    {% if event.user_name %}<span> &mdash; {{ event.user_name }}</span>{% endif %}
+                </div>
+                <div class="timeline-text">{{ event.description }}</div>
+            </div>
+        </div>
+        {% endfor %}
+        {% if not activity %}
+        <p class="empty-state">No activity recorded</p>
+        {% endif %}
+    </div>
+</div>
+
 <script>
 document.querySelectorAll('time[datetime]').forEach(el => {
     const iso = el.getAttribute('datetime');
@@ -88,12 +200,75 @@ document.querySelectorAll('time[datetime]').forEach(el => {
         hour: '2-digit', minute: '2-digit'
     });
 });
+
 async function updateStatus(status) {
     await fetch('/api/leads/{{ lead.id }}/status', {
         method: 'PATCH',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({status}),
     });
+    document.getElementById('revenue-section').style.display = status === 'converted' ? '' : 'none';
+}
+
+async function setFollowUp() {
+    const val = document.getElementById('follow-up-input').value;
+    if (!val) return;
+    await fetch('/api/leads/{{ lead.id }}/follow-up', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({follow_up_at: val}),
+    });
+    window.location.reload();
+}
+
+async function clearFollowUp() {
+    await fetch('/api/leads/{{ lead.id }}/follow-up', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({follow_up_at: null}),
+    });
+    document.getElementById('follow-up-input').value = '';
+}
+
+async function saveRevenue() {
+    const val = parseFloat(document.getElementById('revenue-input').value) || 0;
+    await fetch('/api/leads/{{ lead.id }}/revenue', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({revenue: val}),
+    });
+}
+
+async function addNote() {
+    const content = document.getElementById('note-input').value.trim();
+    if (!content) return;
+    await fetch('/api/leads/{{ lead.id }}/notes', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({content}),
+    });
+    window.location.reload();
+}
+
+async function sendMessage() {
+    const body = document.getElementById('msg-input').value.trim();
+    if (!body) return;
+    const channel = document.querySelector('input[name="msg-channel"]:checked').value;
+    await fetch('/api/leads/{{ lead.id }}/messages', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({channel, body}),
+    });
+    window.location.reload();
+}
+
+async function sendQuote() {
+    if (!confirm('Send quote to this lead via email?')) return;
+    await fetch('/api/leads/{{ lead.id }}/send-quote', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+    });
+    alert('Quote sent!');
 }
 </script>
 {% endblock %}

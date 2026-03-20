@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel
 
@@ -17,6 +18,10 @@ class LeadResponse(BaseModel):
     address: str | None
     zip_code: str | None
     status: str
+    source: str | None = None
+    score: int | None = None
+    follow_up_at: datetime | None = None
+    actual_value: Decimal | None = None
     created_at: datetime
 
     class Config:
@@ -32,3 +37,25 @@ class LeadListResponse(BaseModel):
 
 class LeadStatusUpdate(BaseModel):
     status: str  # new/contacted/qualified/converted/lost
+
+
+class LeadNoteRequest(BaseModel):
+    text: str
+
+
+class LeadFollowUpRequest(BaseModel):
+    follow_up_at: datetime | None = None
+
+
+class LeadValueRequest(BaseModel):
+    actual_value: Decimal
+
+
+class LeadBulkStatusRequest(BaseModel):
+    lead_ids: list[uuid.UUID]
+    status: str
+
+
+class LeadMessageRequest(BaseModel):
+    channel: str  # email/sms
+    content: str

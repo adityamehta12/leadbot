@@ -13,8 +13,13 @@
         <div class="nav-brand">LeadBot</div>
         <div class="nav-links">
             <a href="/dashboard" class="nav-link">Leads</a>
+            <a href="/dashboard/bookings" class="nav-link">Bookings</a>
             <a href="/dashboard/webhooks" class="nav-link">Webhooks</a>
+            <a href="/dashboard/billing" class="nav-link">Billing</a>
             <a href="/dashboard/settings" class="nav-link">Settings</a>
+            {% if user and user.role in ('owner', 'manager') %}
+            <a href="/dashboard/team" class="nav-link">Team</a>
+            {% endif %}
             <form action="/api/auth/logout" method="post" style="display:inline">
                 <button type="submit" class="nav-link btn-link">Logout</button>
             </form>

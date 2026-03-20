@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Bookings{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Bookings</h1>
+</div>
+
+<!-- Filter tabs -->
+<div class="filters">
+    <a href="/dashboard/bookings?filter=upcoming" class="filter-btn {% if filter == 'upcoming' or not filter %}active{% endif %}">Upcoming</a>
+    <a href="/dashboard/bookings?filter=past" class="filter-btn {% if filter == 'past' %}active{% endif %}">Past</a>
+    <a href="/dashboard/bookings?filter=cancelled" class="filter-btn {% if filter == 'cancelled' %}active{% endif %}">Cancelled</a>
+</div>
+
+<div class="table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Date/Time</th>
+                <th>Lead Name</th>
+                <th>Service Type</th>
+                <th>Email</th>
+                <th>Assigned To</th>
+                <th>Recurrence</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for booking in bookings %}
+            <tr>
+                <td><time datetime="{{ booking.start_time.isoformat() if booking.start_time else '' }}">{{ booking.start_time.strftime('%b %d, %Y %H:%M UTC') if booking.start_time else '—' }}</time></td>
+                <td>
+                    {% if booking.lead %}
+                    <a href="/dashboard/leads/{{ booking.lead_id }}">{{ booking.lead.name or '—' }}</a>
+                    {% else %}
+                    {{ booking.customer_name or '—' }}
+                    {% endif %}
+                </td>
+                <td>{{ booking.service_type or '—' }}</td>
+                <td>{{ booking.customer_email or (booking.lead.contact if booking.lead else '—') }}</td>
+                <td>
+                    <select class="assign-select" onchange="assignBooking('{{ booking.id }}', this.value)">
+                        <option value="">Unassigned</option>
+                        {% for member in team_members %}
+                        <option value="{{ member.id }}" {% if booking.assigned_to == member.id %}selected{% endif %}>{{ member.name }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td>{{ booking.recurrence or 'One-time' }}</td>
+                <td><span class="badge badge-{{ booking.status or 'new' }}">{{ booking.status or 'confirmed' }}</span></td>
+                <td>
+                    {% if booking.status != 'cancelled' %}
+                    <button class="btn btn-sm" onclick="cancelBooking('{{ booking.id }}')">Cancel</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not bookings %}
+            <tr><td colspan="8" class="empty-state">No bookings found</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+document.querySelectorAll('time[datetime]').forEach(el => {
+    const iso = el.getAttribute('datetime');
+    if (!iso) return;
+    const d = new Date(iso);
+    el.textContent = d.toLocaleString(undefined, {
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
+});
+
+async function cancelBooking(id) {
+    if (!confirm('Cancel this booking?')) return;
+    await fetch(`/api/bookings/${id}/cancel`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+    });
+    window.location.reload();
+}
+
+async function assignBooking(id, userId) {
+    await fetch(`/api/bookings/${id}/assign`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({assigned_to: userId || null}),
+    });
+}
+</script>
+{% endblock %}

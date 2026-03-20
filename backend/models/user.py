@@ -1,6 +1,7 @@
 import uuid
 
 from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -16,5 +17,6 @@ class BusinessUser(TimestampMixin, Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(255))
     is_owner: Mapped[bool] = mapped_column(Boolean, default=False)
+    role: Mapped[str] = mapped_column(String(20), default="owner")  # owner/manager/crew
 
     business = relationship("Business", back_populates="users")

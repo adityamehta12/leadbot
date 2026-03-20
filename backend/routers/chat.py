@@ -1,12 +1,13 @@
 """Chat router — multi-tenant version of the original chat endpoint."""
 
 import json
+import os
 import re
 import uuid
 from datetime import datetime
 
 import anthropic
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -102,6 +103,29 @@ def _resolve_system_prompt(biz_config: dict | None) -> str:
         if zips:
             base += f"\n\nSERVICE AREA: You ONLY serve these zip codes: {', '.join(zips)}. If the customer's zip code is not in this list, politely say: \"I'm sorry, we don't currently serve that area. We cover zip codes {', '.join(zips[:5])}{'...' if len(zips) > 5 else ''}.\" Do NOT capture a lead for out-of-area customers."
 
+    # Inject FAQ entries if configured
+    if biz_config and biz_config.get("faq_entries"):
+        faq = biz_config["faq_entries"]
+        if isinstance(faq, list) and faq:
+            faq_lines = []
+            for entry in faq:
+                if isinstance(entry, dict) and entry.get("q") and entry.get("a"):
+                    faq_lines.append(f"  Q: {entry['q']}\n  A: {entry['a']}")
+            if faq_lines:
+                base += "\n\nFREQUENTLY ASKED QUESTIONS — Use these to answer common questions:\n" + "\n\n".join(faq_lines)
+
+    # Add language instruction if not English
+    if biz_config:
+        lang = biz_config.get("widget_language") or "en"
+        if lang != "en":
+            lang_names = {
+                "es": "Spanish", "fr": "French", "de": "German", "pt": "Portuguese",
+                "it": "Italian", "nl": "Dutch", "zh": "Chinese", "ja": "Japanese",
+                "ko": "Korean", "ar": "Arabic", "hi": "Hindi", "ru": "Russian",
+            }
+            lang_name = lang_names.get(lang, lang)
+            base += f"\n\nLANGUAGE: You MUST respond in {lang_name} ({lang}). All your replies should be in {lang_name}."
+
     # If calendar is connected, append booking instructions
     if biz_config and biz_config.get("google_calendar_id"):
         base += """
@@ -190,6 +214,7 @@ async def chat(req: ChatRequest, db: AsyncSession = Depends(get_session)):
                     session_id=session_id,
                     lead_data=lead_data,
                     transcript=transcript,
+                    source=req.source,
                 )
 
                 print(f"\n{'='*60}")
@@ -339,3 +364,32 @@ async def text_to_speech(req: TTSRequest):
 async def reset_session(req: ResetRequest):
     await session_service.delete_session(req.session_id)
     return {"status": "ok"}
+
+
+@router.post("/upload")
+async def upload_photo(file: UploadFile = File(...)):
+    """Save an uploaded photo to static/uploads/ and return the URL."""
+    import pathlib
+
+    UPLOAD_DIR = pathlib.Path(__file__).resolve().parent.parent / "static" / "uploads"
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Validate file type
+    allowed_types = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail=f"File type {file.content_type} not allowed")
+
+    # Validate file size (max 5MB)
+    contents = await file.read()
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 5MB)")
+
+    # Generate unique filename
+    ext = os.path.splitext(file.filename or "upload.jpg")[1] or ".jpg"
+    filename = f"{uuid.uuid4().hex}{ext}"
+    filepath = UPLOAD_DIR / filename
+
+    with open(filepath, "wb") as f:
+        f.write(contents)
+
+    return {"url": f"/static/uploads/{filename}", "filename": filename}

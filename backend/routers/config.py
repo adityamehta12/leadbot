@@ -18,4 +18,9 @@ async def get_tenant_config(tenant_id: str, db: AsyncSession = Depends(get_sessi
         color=config["color"],
         greeting=config["greeting"] or "",
         has_calendar=bool(config.get("google_calendar_id")),
+        timezone=config.get("timezone") or "America/New_York",
+        business_hours=config.get("business_hours"),
+        after_hours_message=config.get("after_hours_message"),
+        faq_entries=config.get("faq_entries"),
+        language=config.get("widget_language") or "en",
     )

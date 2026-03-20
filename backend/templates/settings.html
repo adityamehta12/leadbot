@@ -94,14 +94,74 @@
             <textarea id="system_prompt" name="system_prompt" rows="10" placeholder="Leave blank to use the default prompt">{{ business.system_prompt or '' }}</textarea>
             <small>Customize how the AI assistant behaves. Leave blank to use the default cleaning service prompt.</small>
         </div>
+        <div class="form-group">
+            <label for="after_hours_message">After-Hours Message</label>
+            <textarea id="after_hours_message" name="after_hours_message" rows="3" placeholder="We're currently closed. Leave your info and we'll get back to you!">{{ business.after_hours_message or '' }}</textarea>
+            <small>Shown to visitors outside of business hours. Leave blank for default message.</small>
+        </div>
+        <div class="form-group">
+            <label for="widget_language">Widget Language</label>
+            <select id="widget_language" name="widget_language">
+                {% set wl = business.widget_language or 'en' %}
+                {% for code, label in [('en','English'),('es','Spanish'),('fr','French'),('pt','Portuguese'),('zh','Chinese')] %}
+                <option value="{{ code }}" {% if wl == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>FAQ / Knowledge Base</h2>
+        <small style="display:block;margin-bottom:12px;color:#64748b">Add questions and answers the AI can use to respond to common inquiries.</small>
+        <div id="faq-rows">
+            {% set faqs = business.faqs or [] %}
+            {% for faq in faqs %}
+            <div class="faq-row">
+                <input type="text" name="faq_q" value="{{ faq.question }}" placeholder="Question" class="faq-input">
+                <textarea name="faq_a" rows="2" placeholder="Answer" class="faq-input">{{ faq.answer }}</textarea>
+                <button type="button" class="btn btn-sm" onclick="this.closest('.faq-row').remove()" title="Remove">&times;</button>
+            </div>
+            {% endfor %}
+        </div>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="addFaqRow()">+ Add Q&amp;A</button>
+    </div>
+
+    <div class="card">
+        <h2>Auto Follow-up</h2>
+        {% set afu = business.auto_followup or {} %}
+        <div class="form-group">
+            <label style="font-weight:normal;display:flex;align-items:center;gap:8px;">
+                <input type="checkbox" name="auto_followup_enabled" value="1" {% if afu.get('enabled') %}checked{% endif %}>
+                Enable automatic follow-up messages
+            </label>
+        </div>
+        <div class="form-group">
+            <label for="followup_delay">Delay (hours after lead captured)</label>
+            <input type="number" id="followup_delay" name="auto_followup_delay_hours" value="{{ afu.get('delay_hours', 24) }}" style="width:100px">
+        </div>
+        <div class="form-group">
+            <label for="followup_template">Message Template</label>
+            <textarea id="followup_template" name="auto_followup_template" rows="4" placeholder="Hi {name}, thanks for your interest in {service}...">{{ afu.get('template', '') }}</textarea>
+            <small>Use {name}, {service}, {business_name} as placeholders.</small>
+        </div>
     </div>
 
     <div class="card">
         <h2>Integrations</h2>
         <div class="form-group">
-            <label for="webhook_url">Webhook URL</label>
+            <label for="webhook_url">Webhook URL (Lead Capture)</label>
             <input type="url" id="webhook_url" name="webhook_url" value="{{ business.webhook_url or '' }}" placeholder="https://...">
             <small>Lead data will be POSTed to this URL on capture</small>
+        </div>
+        <div class="form-group">
+            <label for="webhook_status_change">Webhook URL (Status Change)</label>
+            <input type="url" id="webhook_status_change" name="webhook_status_change" value="{{ (business.event_webhooks or {}).get('status_change', '') }}" placeholder="https://...">
+            <small>Called when a lead's status changes</small>
+        </div>
+        <div class="form-group">
+            <label for="webhook_booking_created">Webhook URL (Booking Created)</label>
+            <input type="url" id="webhook_booking_created" name="webhook_booking_created" value="{{ (business.event_webhooks or {}).get('booking_created', '') }}" placeholder="https://...">
+            <small>Called when a new booking is created</small>
         </div>
         <div class="form-group">
             <label>Google Calendar</label>
@@ -145,4 +205,18 @@
 
     <button type="submit" class="btn btn-primary">Save Settings</button>
 </form>
+
+<script>
+function addFaqRow() {
+    const container = document.getElementById('faq-rows');
+    const row = document.createElement('div');
+    row.className = 'faq-row';
+    row.innerHTML = `
+        <input type="text" name="faq_q" placeholder="Question" class="faq-input">
+        <textarea name="faq_a" rows="2" placeholder="Answer" class="faq-input"></textarea>
+        <button type="button" class="btn btn-sm" onclick="this.closest('.faq-row').remove()" title="Remove">&times;</button>
+    `;
+    container.appendChild(row);
+}
+</script>
 {% endblock %}

@@ -105,3 +105,93 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* ── Alert ───────────────────────────────────────────────── */
 .alert { padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
 .alert-success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+
+/* ── Date Range Bar ─────────────────────────────────────── */
+.date-range-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.date-range-label { font-size: 14px; font-weight: 600; color: #64748b; }
+
+/* ── Score Bar ──────────────────────────────────────────── */
+.score-section { margin-bottom: 12px; }
+.score-bar { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+.score-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+.score-high { background: #22c55e; }
+.score-med { background: #f59e0b; }
+.score-low { background: #ef4444; }
+.score-value { font-size: 14px; font-weight: 700; }
+.score-bar-mini { position: relative; width: 60px; height: 6px; background: #e2e8f0; border-radius: 3px; display: inline-flex; align-items: center; }
+.score-bar-mini .score-bar-fill { height: 100%; border-radius: 3px; position: absolute; left: 0; top: 0; }
+.score-text-mini { font-size: 11px; font-weight: 600; margin-left: 66px; white-space: nowrap; }
+
+/* ── Funnel Chart ───────────────────────────────────────── */
+.funnel-chart { display: flex; flex-direction: column; gap: 8px; }
+.funnel-row { display: flex; align-items: center; gap: 12px; }
+.funnel-label { width: 100px; font-size: 13px; font-weight: 600; color: #64748b; text-align: right; }
+.funnel-bar-wrap { flex: 1; background: #f1f5f9; border-radius: 6px; height: 28px; overflow: hidden; }
+.funnel-bar { height: 100%; border-radius: 6px; display: flex; align-items: center; padding: 0 10px; min-width: 30px; transition: width 0.3s; }
+.funnel-bar-new { background: #dbeafe; color: #1d4ed8; }
+.funnel-bar-contacted { background: #fef3c7; color: #92400e; }
+.funnel-bar-qualified { background: #e0e7ff; color: #4338ca; }
+.funnel-bar-converted { background: #d1fae5; color: #065f46; }
+.funnel-bar-lost { background: #fee2e2; color: #991b1b; }
+.funnel-count { font-size: 12px; font-weight: 700; }
+
+/* ── Bulk Action Bar ────────────────────────────────────── */
+.bulk-action-bar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; margin-bottom: 12px; font-size: 14px; font-weight: 500; color: #1d4ed8; }
+.bulk-action-bar select { padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; }
+
+/* ── Follow-up Icon ─────────────────────────────────────── */
+.follow-up-icon { font-size: 14px; margin-left: 4px; vertical-align: middle; }
+
+/* ── Follow-up Section ──────────────────────────────────── */
+.follow-up-section { margin-top: 16px; padding-top: 12px; border-top: 1px solid #f1f5f9; }
+.follow-up-section input[type="datetime-local"] { padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; }
+
+/* ── Revenue Section ────────────────────────────────────── */
+.revenue-section { margin-top: 16px; padding-top: 12px; border-top: 1px solid #f1f5f9; }
+
+/* ── Notes ──────────────────────────────────────────────── */
+.notes-list { margin-bottom: 16px; }
+.note-item { padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
+.note-item:last-child { border-bottom: none; }
+.note-meta { font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
+.note-body { font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+.note-form { padding-top: 12px; border-top: 1px solid #e2e8f0; }
+
+/* ── Messages ───────────────────────────────────────────── */
+.messages-list { margin-bottom: 16px; }
+.message-item { padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
+.message-item:last-child { border-bottom: none; }
+.message-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
+.message-body { font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+.message-form { padding-top: 12px; border-top: 1px solid #e2e8f0; }
+
+/* ── Activity Timeline ──────────────────────────────────── */
+.activity-timeline { position: relative; padding-left: 24px; }
+.activity-timeline::before { content: ''; position: absolute; left: 7px; top: 0; bottom: 0; width: 2px; background: #e2e8f0; }
+.timeline-item { position: relative; padding-bottom: 16px; }
+.timeline-item:last-child { padding-bottom: 0; }
+.timeline-dot { position: absolute; left: -20px; top: 4px; width: 10px; height: 10px; background: #2563eb; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 2px #e2e8f0; }
+.timeline-meta { font-size: 12px; color: #94a3b8; margin-bottom: 2px; }
+.timeline-text { font-size: 14px; }
+
+/* ── FAQ Rows ───────────────────────────────────────────── */
+.faq-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 12px; }
+.faq-input { flex: 1; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; font-family: inherit; }
+
+/* ── Assign Select ──────────────────────────────────────── */
+.assign-select { padding: 4px 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; background: #fff; }
+
+/* ── Plan Badge ─────────────────────────────────────────── */
+.plan-display { text-align: center; padding: 12px 0; }
+.plan-badge { display: inline-block; padding: 6px 20px; border-radius: 20px; font-size: 16px; font-weight: 700; letter-spacing: 1px; }
+.plan-badge-free { background: #f1f5f9; color: #64748b; }
+.plan-badge-pro { background: #dbeafe; color: #1d4ed8; }
+
+/* ── Btn danger ─────────────────────────────────────────── */
+.btn-danger { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.btn-danger:hover { background: #fecaca; }
+
+/* ── Badge for bookings ─────────────────────────────────── */
+.badge-confirmed { background: #d1fae5; color: #065f46; }
+.badge-cancelled { background: #fee2e2; color: #991b1b; }
+.badge-pending { background: #fef3c7; color: #92400e; }

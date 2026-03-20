@@ -1,6 +1,8 @@
 import uuid
+from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -26,5 +28,10 @@ class Lead(TimestampMixin, Base):
     raw_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="new")
     conversation_transcript: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    source: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    notes: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    follow_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    actual_value: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
 
     business = relationship("Business", back_populates="leads")

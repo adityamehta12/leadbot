@@ -9,11 +9,20 @@
     <a href="/api/leads/export/csv" class="btn btn-secondary">Export CSV</a>
 </div>
 
+<!-- Date range selector -->
+<div class="date-range-bar">
+    <span class="date-range-label">Period:</span>
+    <a href="/dashboard?days=7{% if status_filter %}&status={{ status_filter }}{% endif %}" class="filter-btn {% if days == 7 %}active{% endif %}">7d</a>
+    <a href="/dashboard?days=30{% if status_filter %}&status={{ status_filter }}{% endif %}" class="filter-btn {% if days == 30 or not days %}active{% endif %}">30d</a>
+    <a href="/dashboard?days=90{% if status_filter %}&status={{ status_filter }}{% endif %}" class="filter-btn {% if days == 90 %}active{% endif %}">90d</a>
+    <a href="/dashboard?days=0{% if status_filter %}&status={{ status_filter }}{% endif %}" class="filter-btn {% if days == 0 %}active{% endif %}">All</a>
+</div>
+
 <!-- Analytics cards -->
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-value">{{ stats.total_leads }}</div>
-        <div class="stat-label">Total Leads (30d)</div>
+        <div class="stat-label">Total Leads</div>
     </div>
     <div class="stat-card">
         <div class="stat-value">{{ stats.converted }}</div>
@@ -23,6 +32,18 @@
         <div class="stat-value">{{ stats.conversion_rate }}%</div>
         <div class="stat-label">Conversion Rate</div>
     </div>
+    <div class="stat-card">
+        <div class="stat-value">${{ stats.total_revenue or 0 }}</div>
+        <div class="stat-label">Revenue</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">${{ stats.avg_value or 0 }}</div>
+        <div class="stat-label">Avg Deal Value</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.follow_up_due or 0 }}</div>
+        <div class="stat-label">Follow-ups Due</div>
+    </div>
 </div>
 
 <!-- Chart -->
@@ -30,14 +51,86 @@
     <canvas id="leadsChart" height="200"></canvas>
 </div>
 
-<!-- Filters -->
+<!-- Conversion Funnel -->
+{% if stats.funnel %}
+<div class="card">
+    <h2>Conversion Funnel</h2>
+    <div class="funnel-chart">
+        {% set max_count = stats.funnel | map(attribute='count') | max or 1 %}
+        {% for step in stats.funnel %}
+        <div class="funnel-row">
+            <span class="funnel-label">{{ step.status | capitalize }}</span>
+            <div class="funnel-bar-wrap">
+                <div class="funnel-bar funnel-bar-{{ step.status }}" style="width: {{ (step.count / max_count * 100) | round }}%">
+                    <span class="funnel-count">{{ step.count }}</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Breakdowns -->
+<div class="detail-grid" style="margin-bottom: 24px;">
+    {% if stats.by_service %}
+    <div class="card">
+        <h2>By Service Type</h2>
+        <table class="data-table">
+            <thead><tr><th>Service</th><th>Count</th><th>Revenue</th></tr></thead>
+            <tbody>
+                {% for row in stats.by_service %}
+                <tr>
+                    <td>{{ row.service or 'Unknown' }}</td>
+                    <td>{{ row.count }}</td>
+                    <td>${{ row.revenue or 0 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    {% if stats.by_source %}
+    <div class="card">
+        <h2>By Lead Source</h2>
+        <table class="data-table">
+            <thead><tr><th>Source</th><th>Count</th><th>Converted</th></tr></thead>
+            <tbody>
+                {% for row in stats.by_source %}
+                <tr>
+                    <td>{{ row.source or 'Direct' }}</td>
+                    <td>{{ row.count }}</td>
+                    <td>{{ row.converted or 0 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Status Filters -->
 <div class="filters">
-    <a href="/dashboard" class="filter-btn {% if not status_filter %}active{% endif %}">All</a>
-    <a href="/dashboard?status=new" class="filter-btn {% if status_filter == 'new' %}active{% endif %}">New</a>
-    <a href="/dashboard?status=contacted" class="filter-btn {% if status_filter == 'contacted' %}active{% endif %}">Contacted</a>
-    <a href="/dashboard?status=qualified" class="filter-btn {% if status_filter == 'qualified' %}active{% endif %}">Qualified</a>
-    <a href="/dashboard?status=converted" class="filter-btn {% if status_filter == 'converted' %}active{% endif %}">Converted</a>
-    <a href="/dashboard?status=lost" class="filter-btn {% if status_filter == 'lost' %}active{% endif %}">Lost</a>
+    <a href="/dashboard{% if days is not none %}?days={{ days }}{% endif %}" class="filter-btn {% if not status_filter %}active{% endif %}">All</a>
+    <a href="/dashboard?status=new{% if days is not none %}&days={{ days }}{% endif %}" class="filter-btn {% if status_filter == 'new' %}active{% endif %}">New</a>
+    <a href="/dashboard?status=contacted{% if days is not none %}&days={{ days }}{% endif %}" class="filter-btn {% if status_filter == 'contacted' %}active{% endif %}">Contacted</a>
+    <a href="/dashboard?status=qualified{% if days is not none %}&days={{ days }}{% endif %}" class="filter-btn {% if status_filter == 'qualified' %}active{% endif %}">Qualified</a>
+    <a href="/dashboard?status=converted{% if days is not none %}&days={{ days }}{% endif %}" class="filter-btn {% if status_filter == 'converted' %}active{% endif %}">Converted</a>
+    <a href="/dashboard?status=lost{% if days is not none %}&days={{ days }}{% endif %}" class="filter-btn {% if status_filter == 'lost' %}active{% endif %}">Lost</a>
+</div>
+
+<!-- Bulk action bar (hidden by default) -->
+<div id="bulk-bar" class="bulk-action-bar" style="display:none;">
+    <span id="bulk-count">0</span> selected
+    <select id="bulk-status">
+        <option value="">Change status to...</option>
+        <option value="new">New</option>
+        <option value="contacted">Contacted</option>
+        <option value="qualified">Qualified</option>
+        <option value="converted">Converted</option>
+        <option value="lost">Lost</option>
+    </select>
+    <button class="btn btn-primary btn-sm" onclick="applyBulkStatus()">Apply</button>
 </div>
 
 <!-- Leads table -->
@@ -45,10 +138,12 @@
     <table class="data-table">
         <thead>
             <tr>
+                <th><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"></th>
                 <th>Name</th>
                 <th>Contact</th>
                 <th>Type</th>
                 <th>Zip</th>
+                <th>Score</th>
                 <th>Status</th>
                 <th>Date</th>
                 <th></th>
@@ -57,17 +152,31 @@
         <tbody>
             {% for lead in leads %}
             <tr>
-                <td>{{ lead.name or '—' }}</td>
+                <td><input type="checkbox" class="lead-cb" value="{{ lead.id }}" onchange="updateBulkBar()"></td>
+                <td>
+                    {{ lead.name or '—' }}
+                    {% if lead.follow_up_at and lead.follow_up_at <= now %}
+                    <span class="follow-up-icon" title="Follow-up overdue">&#128339;</span>
+                    {% endif %}
+                </td>
                 <td>{{ lead.contact or '—' }}</td>
                 <td>{{ lead.cleaning_type or '—' }}</td>
                 <td>{{ lead.zip_code or '—' }}</td>
+                <td>
+                    {% if lead.score is not none %}
+                    <div class="score-bar-mini">
+                        <div class="score-bar-fill {% if lead.score >= 70 %}score-high{% elif lead.score >= 40 %}score-med{% else %}score-low{% endif %}" style="width:{{ lead.score }}%"></div>
+                        <span class="score-text-mini">{{ lead.score }}</span>
+                    </div>
+                    {% else %}—{% endif %}
+                </td>
                 <td><span class="badge badge-{{ lead.status }}">{{ lead.status }}</span></td>
                 <td><time datetime="{{ lead.created_at.isoformat() if lead.created_at else '' }}">{{ lead.created_at.strftime('%b %d, %Y %H:%M UTC') if lead.created_at else '—' }}</time></td>
                 <td><a href="/dashboard/leads/{{ lead.id }}" class="btn btn-sm">View</a></td>
             </tr>
             {% endfor %}
             {% if not leads %}
-            <tr><td colspan="6" class="empty-state">No leads yet</td></tr>
+            <tr><td colspan="9" class="empty-state">No leads yet</td></tr>
             {% endif %}
         </tbody>
     </table>
@@ -76,9 +185,9 @@
 <!-- Pagination -->
 {% if pages > 1 %}
 <div class="pagination">
-    {% if page > 1 %}<a href="/dashboard?page={{ page - 1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="btn btn-sm">&laquo; Prev</a>{% endif %}
+    {% if page > 1 %}<a href="/dashboard?page={{ page - 1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if days is not none %}&days={{ days }}{% endif %}" class="btn btn-sm">&laquo; Prev</a>{% endif %}
     <span class="page-info">Page {{ page }} of {{ pages }}</span>
-    {% if page < pages %}<a href="/dashboard?page={{ page + 1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="btn btn-sm">Next &raquo;</a>{% endif %}
+    {% if page < pages %}<a href="/dashboard?page={{ page + 1 }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if days is not none %}&days={{ days }}{% endif %}" class="btn btn-sm">Next &raquo;</a>{% endif %}
 </div>
 {% endif %}
 
@@ -114,5 +223,28 @@ document.querySelectorAll('time[datetime]').forEach(el => {
         hour: '2-digit', minute: '2-digit'
     });
 });
+
+// Bulk actions
+function toggleSelectAll(el) {
+    document.querySelectorAll('.lead-cb').forEach(cb => cb.checked = el.checked);
+    updateBulkBar();
+}
+function updateBulkBar() {
+    const checked = document.querySelectorAll('.lead-cb:checked');
+    const bar = document.getElementById('bulk-bar');
+    document.getElementById('bulk-count').textContent = checked.length;
+    bar.style.display = checked.length > 0 ? 'flex' : 'none';
+}
+async function applyBulkStatus() {
+    const status = document.getElementById('bulk-status').value;
+    if (!status) return;
+    const ids = Array.from(document.querySelectorAll('.lead-cb:checked')).map(cb => cb.value);
+    await fetch('/api/leads/bulk-status', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids, status}),
+    });
+    window.location.reload();
+}
 </script>
 {% endblock %}

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Team{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Team Members</h1>
+</div>
+
+{% if request.query_params.get('invited') %}
+<div class="alert alert-success">Team member invited successfully.</div>
+{% endif %}
+{% if request.query_params.get('removed') %}
+<div class="alert alert-success">Team member removed.</div>
+{% endif %}
+
+<div class="table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Joined</th>
+                {% if user.role == 'owner' %}<th></th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for member in members %}
+            <tr>
+                <td>{{ member.name }}</td>
+                <td>{{ member.email }}</td>
+                <td><span class="badge" style="background:#e0e7ff;color:#4338ca;">{{ member.role | capitalize }}</span></td>
+                <td><time datetime="{{ member.created_at.isoformat() if member.created_at else '' }}">{{ member.created_at.strftime('%b %d, %Y') if member.created_at else '—' }}</time></td>
+                {% if user.role == 'owner' %}
+                <td>
+                    {% if member.id != user.id %}
+                    <form method="post" action="/dashboard/team/{{ member.id }}/remove" style="display:inline" onsubmit="return confirm('Remove this team member?')">
+                        <button type="submit" class="btn btn-sm" style="color:#991b1b;">Remove</button>
+                    </form>
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if user.role == 'owner' %}
+<div class="card" style="margin-top:24px;max-width:480px;">
+    <h2>Invite Team Member</h2>
+    <form method="post" action="/dashboard/team/invite">
+        <div class="form-group">
+            <label for="inv-name">Name</label>
+            <input type="text" id="inv-name" name="name" required>
+        </div>
+        <div class="form-group">
+            <label for="inv-email">Email</label>
+            <input type="email" id="inv-email" name="email" required>
+        </div>
+        <div class="form-group">
+            <label for="inv-password">Password</label>
+            <input type="password" id="inv-password" name="password" required minlength="8">
+        </div>
+        <div class="form-group">
+            <label for="inv-role">Role</label>
+            <select id="inv-role" name="role">
+                <option value="member">Member</option>
+                <option value="manager">Manager</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Invite</button>
+    </form>
+</div>
+{% endif %}
+
+<script>
+document.querySelectorAll('time[datetime]').forEach(el => {
+    const iso = el.getAttribute('datetime');
+    if (!iso) return;
+    const d = new Date(iso);
+    el.textContent = d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+});
+</script>
+{% endblock %}

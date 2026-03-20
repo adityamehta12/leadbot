@@ -32,6 +32,143 @@
   let preChatCompleted = false;
   let preChatData = {};
   let lastLeadId = null;
+  let isAfterHours = false;
+  let faqEntries = [];
+  let pendingPhotoUrl = null;
+  let firstMessageSent = false;
+
+  // ── Translations ──────────────────────────────────────────────
+  const TRANSLATIONS = {
+    en: {
+      welcome: "Welcome!",
+      prechat_subtitle: "Before we chat, please share your details so we can serve you better.",
+      name_placeholder: "Your name",
+      email_placeholder: "Email or phone",
+      address_placeholder: "Property address",
+      service_label: "What type of cleaning?",
+      start_chat: "Start Chat",
+      send: "Send",
+      speak_or_type: "Speak or type...",
+      type_message: "Type a message...",
+      listening: "Listening...",
+      after_hours_default: "We're currently closed. Leave a message and we'll get back to you!",
+      greeting_fallback: "Hi there! How can I help you today?",
+    },
+    es: {
+      welcome: "¡Bienvenido!",
+      prechat_subtitle: "Antes de chatear, comparta sus datos para poder atenderle mejor.",
+      name_placeholder: "Su nombre",
+      email_placeholder: "Correo o teléfono",
+      address_placeholder: "Dirección de la propiedad",
+      service_label: "¿Qué tipo de limpieza?",
+      start_chat: "Iniciar Chat",
+      send: "Enviar",
+      speak_or_type: "Habla o escribe...",
+      type_message: "Escribe un mensaje...",
+      listening: "Escuchando...",
+      after_hours_default: "Estamos cerrados. Deje un mensaje y nos comunicaremos con usted.",
+      greeting_fallback: "¡Hola! ¿En qué puedo ayudarle hoy?",
+    },
+    fr: {
+      welcome: "Bienvenue !",
+      prechat_subtitle: "Avant de discuter, partagez vos coordonnées pour mieux vous servir.",
+      name_placeholder: "Votre nom",
+      email_placeholder: "E-mail ou téléphone",
+      address_placeholder: "Adresse de la propriété",
+      service_label: "Quel type de nettoyage ?",
+      start_chat: "Démarrer le Chat",
+      send: "Envoyer",
+      speak_or_type: "Parlez ou tapez...",
+      type_message: "Tapez un message...",
+      listening: "Écoute...",
+      after_hours_default: "Nous sommes actuellement fermés. Laissez un message et nous vous recontacterons !",
+      greeting_fallback: "Bonjour ! Comment puis-je vous aider aujourd'hui ?",
+    },
+    pt: {
+      welcome: "Bem-vindo!",
+      prechat_subtitle: "Antes de conversar, compartilhe seus dados para podermos atendê-lo melhor.",
+      name_placeholder: "Seu nome",
+      email_placeholder: "E-mail ou telefone",
+      address_placeholder: "Endereço do imóvel",
+      service_label: "Que tipo de limpeza?",
+      start_chat: "Iniciar Chat",
+      send: "Enviar",
+      speak_or_type: "Fale ou digite...",
+      type_message: "Digite uma mensagem...",
+      listening: "Ouvindo...",
+      after_hours_default: "Estamos fechados no momento. Deixe uma mensagem e entraremos em contato!",
+      greeting_fallback: "Olá! Como posso ajudá-lo hoje?",
+    },
+    zh: {
+      welcome: "欢迎！",
+      prechat_subtitle: "在我们聊天之前，请分享您的详细信息，以便我们更好地为您服务。",
+      name_placeholder: "您的姓名",
+      email_placeholder: "电子邮件或电话",
+      address_placeholder: "物业地址",
+      service_label: "需要什么类型的清洁？",
+      start_chat: "开始聊天",
+      send: "发送",
+      speak_or_type: "说话或输入...",
+      type_message: "输入消息...",
+      listening: "正在听...",
+      after_hours_default: "我们目前已关闭。请留言，我们会尽快回复您！",
+      greeting_fallback: "您好！今天我能为您做些什么？",
+    },
+  };
+
+  function t(key) {
+    const lang = config.language || "en";
+    return (TRANSLATIONS[lang] && TRANSLATIONS[lang][key]) || TRANSLATIONS.en[key] || key;
+  }
+
+  // ── After-hours check ─────────────────────────────────────────
+  function checkAfterHours() {
+    if (!config.business_hours) return false;
+    const { start, end, days } = config.business_hours;
+    if (!start || !end || !days) return false;
+
+    // Get current time in business timezone
+    const tz = config.timezone || "America/New_York";
+    const now = new Date();
+    const tzStr = now.toLocaleString("en-US", { timeZone: tz });
+    const tzDate = new Date(tzStr);
+
+    const currentDay = tzDate.getDay();
+    const currentHour = tzDate.getHours();
+    const currentMinute = tzDate.getMinutes();
+    const currentTime = currentHour * 60 + currentMinute;
+
+    const [startH, startM] = start.split(":").map(Number);
+    const [endH, endM] = end.split(":").map(Number);
+    const startTime = startH * 60 + startM;
+    const endTime = endH * 60 + endM;
+
+    if (!days.includes(currentDay)) return true;
+    if (currentTime < startTime || currentTime >= endTime) return true;
+    return false;
+  }
+
+  // ── FAQ matching ──────────────────────────────────────────────
+  function matchFaq(userMessage) {
+    if (!faqEntries || faqEntries.length === 0) return null;
+    const userWords = userMessage.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    if (userWords.length === 0) return null;
+
+    for (const entry of faqEntries) {
+      const faqWords = entry.q.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+      if (faqWords.length === 0) continue;
+      let matchCount = 0;
+      for (const fw of faqWords) {
+        if (userWords.some(uw => uw.includes(fw) || fw.includes(uw))) {
+          matchCount++;
+        }
+      }
+      if (matchCount / faqWords.length >= 0.6) {
+        return entry.a;
+      }
+    }
+    return null;
+  }
 
   // ── Shadow DOM host ──────────────────────────────────────────
   let shadowRoot = null;
@@ -93,6 +230,12 @@
     #leadbot-interrupt-hint.visible { display: block; }
     #leadbot-lead-banner { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; padding: 12px 16px; margin: 8px 16px; text-align: center; font-size: 13px; color: #065f46; animation: leadbot-fade 0.4s; }
     #leadbot-unavailable { padding: 40px 20px; text-align: center; color: #64748b; font-size: 14px; }
+    #leadbot-after-hours-banner { background: #fef3c7; border-bottom: 1px solid #fde68a; padding: 10px 16px; font-size: 13px; color: #92400e; text-align: center; line-height: 1.4; flex-shrink: 0; }
+    #leadbot-attach-btn { width: 44px; height: 44px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; flex-shrink: 0; background: #f1f5f9; }
+    #leadbot-attach-btn:hover { background: #e2e8f0; }
+    #leadbot-attach-btn svg { width: 20px; height: 20px; }
+    .leadbot-photo-thumb { max-width: 180px; max-height: 140px; border-radius: 10px; margin-top: 4px; display: block; }
+    .leadbot-photo-uploading { opacity: 0.5; }
     /* Pre-chat form */
     #leadbot-prechat { padding: 24px 20px; display: flex; flex-direction: column; gap: 12px; flex: 1; justify-content: center; }
     #leadbot-prechat h3 { font-size: 16px; font-weight: 600; color: #1e293b; }
@@ -124,6 +267,8 @@
   const ICON_MIC = '<svg viewBox="0 0 24 24"><path fill="#64748b" d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>';
   const ICON_RESTART = '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M17.65 6.35A7.96 7.96 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>';
   const ICON_MIC_ON = '<svg viewBox="0 0 24 24"><path fill="#ef4444" d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>';
+  const ICON_ATTACH = '<svg viewBox="0 0 24 24"><path fill="#64748b" d="M21.58 11.4l-9.17 9.17c-2.34 2.34-6.14 2.34-8.49 0-2.34-2.34-2.34-6.14 0-8.49l9.17-9.17c1.56-1.56 4.09-1.56 5.66 0 1.56 1.56 1.56 4.09 0 5.66l-9.17 9.17c-.78.78-2.05.78-2.83 0-.78-.78-.78-2.05 0-2.83l7.07-7.07 1.41 1.41-7.07 7.07 2.83-2.83 9.17-9.17c-.78-.78-.78-2.05 0-2.83l-9.17 9.17c-1.56 1.56-1.56 4.09 0 5.66 1.56 1.56 4.09 1.56 5.66 0l9.17-9.17-1.41-1.41z"/></svg>';
+  const ICON_CAMERA = '<svg viewBox="0 0 24 24"><path fill="#64748b" d="M12 12m-3.2 0a3.2 3.2 0 1 0 6.4 0 3.2 3.2 0 1 0-6.4 0M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>';
 
   // ── iOS Audio Unlock ─────────────────────────────────────────
   function unlockAudio() {
@@ -155,6 +300,10 @@
       configFailed = true;
     }
 
+    // Store FAQ entries and check after-hours
+    faqEntries = config.faq_entries || [];
+    isAfterHours = checkAfterHours();
+
     speechSupported =
       "webkitSpeechRecognition" in window || "SpeechRecognition" in window;
 
@@ -184,27 +333,30 @@
         ${configFailed
           ? '<div id="leadbot-unavailable">Chat is temporarily unavailable. Please try again later.</div>'
           : `<div id="leadbot-prechat">
-          <h3>Welcome!</h3>
-          <p>Before we chat, please share your details so we can serve you better.</p>
-          <input class="prechat-input" id="leadbot-prechat-name" placeholder="Your name" autocomplete="name">
-          <input class="prechat-input" id="leadbot-prechat-email" placeholder="Email or phone" type="email" autocomplete="email">
-          <input class="prechat-input" id="leadbot-prechat-address" placeholder="Property address" autocomplete="street-address">
+          <h3>${t("welcome")}</h3>
+          <p>${t("prechat_subtitle")}</p>
+          <input class="prechat-input" id="leadbot-prechat-name" placeholder="${t("name_placeholder")}" autocomplete="name">
+          <input class="prechat-input" id="leadbot-prechat-email" placeholder="${t("email_placeholder")}" type="email" autocomplete="email">
+          <input class="prechat-input" id="leadbot-prechat-address" placeholder="${t("address_placeholder")}" autocomplete="street-address">
           <select class="prechat-input" id="leadbot-prechat-service" style="color:#64748b">
-            <option value="">What type of cleaning?</option>
+            <option value="">${t("service_label")}</option>
             <option value="regular">Regular Cleaning</option>
             <option value="deep_clean">Deep Clean</option>
             <option value="move_in_out">Move In/Out</option>
             <option value="office">Office Cleaning</option>
             <option value="post_construction">Post-Construction</option>
           </select>
-          <button class="prechat-btn" id="leadbot-prechat-btn">Start Chat</button>
+          <button class="prechat-btn" id="leadbot-prechat-btn">${t("start_chat")}</button>
         </div>
+        ${isAfterHours ? `<div id="leadbot-after-hours-banner">${config.after_hours_message || t("after_hours_default")}</div>` : ""}
         <div id="leadbot-messages" style="display:none"></div>
         <div id="leadbot-interrupt-hint">Press Space or tap here to interrupt and speak</div>
         <div id="leadbot-input-area" style="display:none">
           ${speechSupported ? `<button id="leadbot-mic-btn" aria-label="Voice input">${ICON_MIC}</button>` : ""}
-          <textarea id="leadbot-text-input" rows="1" placeholder="${speechSupported ? "Speak or type..." : "Type a message..."}" autocomplete="off"></textarea>
-          <button id="leadbot-send-btn" aria-label="Send" disabled>${ICON_SEND}</button>
+          <button id="leadbot-attach-btn" aria-label="Attach photo">${ICON_CAMERA}</button>
+          <input type="file" id="leadbot-file-input" accept="image/*" style="display:none">
+          <textarea id="leadbot-text-input" rows="1" placeholder="${speechSupported ? t("speak_or_type") : t("type_message")}" autocomplete="off"></textarea>
+          <button id="leadbot-send-btn" aria-label="${t("send")}" disabled>${ICON_SEND}</button>
         </div>`
         }
       </div>
@@ -325,6 +477,61 @@
       micBtn.addEventListener("click", toggleListening);
     }
 
+    // ── Photo upload ──
+    const attachBtn = $("leadbot-attach-btn");
+    const fileInput = $("leadbot-file-input");
+    if (attachBtn && fileInput) {
+      attachBtn.addEventListener("click", () => fileInput.click());
+      fileInput.addEventListener("change", async () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        fileInput.value = "";
+
+        // Show thumbnail preview immediately
+        const messages = $("leadbot-messages");
+        const thumbDiv = document.createElement("div");
+        thumbDiv.className = "leadbot-msg user";
+        const img = document.createElement("img");
+        img.className = "leadbot-photo-thumb leadbot-photo-uploading";
+        img.src = URL.createObjectURL(file);
+        thumbDiv.appendChild(img);
+        messages.appendChild(thumbDiv);
+        messages.scrollTop = messages.scrollHeight;
+
+        try {
+          const formData = new FormData();
+          formData.append("image", file);
+          const res = await fetch(`${API_BASE}/api/upload`, {
+            method: "POST",
+            body: formData,
+          });
+          if (!res.ok) throw new Error("Upload failed");
+          const data = await res.json();
+          const photoUrl = data.url.startsWith("http") ? data.url : `${API_BASE}${data.url}`;
+          img.src = photoUrl;
+          img.classList.remove("leadbot-photo-uploading");
+          pendingPhotoUrl = photoUrl;
+
+          // If there's text in the input, send it with the photo; otherwise send standalone
+          const currentText = input.value.trim();
+          if (currentText) {
+            sendMessage(currentText);
+          } else {
+            sendMessage("");
+          }
+        } catch (e) {
+          console.error("Photo upload error:", e);
+          img.classList.remove("leadbot-photo-uploading");
+          thumbDiv.style.opacity = "0.5";
+          const errMsg = document.createElement("div");
+          errMsg.style.fontSize = "11px";
+          errMsg.style.color = "#ef4444";
+          errMsg.textContent = "Upload failed";
+          thumbDiv.appendChild(errMsg);
+        }
+      });
+    }
+
     // ── Interrupt: spacebar or click on messages area ──────
     document.addEventListener("keydown", (e) => {
       if (!isOpen || !voiceMode || !isSpeaking) return;
@@ -437,7 +644,7 @@
       micBtn.classList.add("listening");
       micBtn.innerHTML = ICON_MIC_ON;
     }
-    $("leadbot-text-input").placeholder = "Listening...";
+    $("leadbot-text-input").placeholder = t("listening");
     setTimeout(() => {
       if (voiceMode && !isSpeaking) {
         try { recognition.start(); } catch (e) {}
@@ -461,7 +668,7 @@
     const micBtn = $("leadbot-mic-btn");
     micBtn.classList.add("listening");
     micBtn.innerHTML = ICON_MIC_ON;
-    $("leadbot-text-input").placeholder = "Listening...";
+    $("leadbot-text-input").placeholder = t("listening");
     try {
       recognition.start();
     } catch (e) {
@@ -478,7 +685,7 @@
       micBtn.innerHTML = ICON_MIC;
     }
     const input = $("leadbot-text-input");
-    if (input) input.placeholder = speechSupported ? "Speak or type..." : "Type a message...";
+    if (input) input.placeholder = speechSupported ? t("speak_or_type") : t("type_message");
     try {
       recognition?.stop();
     } catch (e) {}
@@ -675,19 +882,47 @@
       restartRecognition();
     }
 
+    // Append photo URL if one is pending
+    if (pendingPhotoUrl) {
+      text = text ? `${text} [Photo: ${pendingPhotoUrl}]` : `[Photo: ${pendingPhotoUrl}]`;
+      pendingPhotoUrl = null;
+    }
+
+    // Check FAQ before calling API
+    const faqAnswer = matchFaq(text);
+    if (faqAnswer) {
+      addMessage(text, "user");
+      addMessage(faqAnswer, "bot");
+      isProcessing = false;
+      return;
+    }
+
     addMessage(text, "user");
     const typingEl = addTypingIndicator();
 
     try {
-      const body = { session_id: sessionId, message: text };
+      let apiMessage = text;
+      // Prepend after-hours tag
+      if (isAfterHours) {
+        apiMessage = "[After Hours] " + apiMessage;
+      }
+
+      const body = { session_id: sessionId, message: apiMessage };
       if (TENANT_ID) body.tenant_id = TENANT_ID;
+
+      // Include source on first message
+      if (!firstMessageSent) {
+        body.source = window.location.href;
+        firstMessageSent = true;
+      }
+
       // Include pre-chat data in first message
       if (preChatData.name && !sessionId) {
         const parts = [`Name: ${preChatData.name}`];
         if (preChatData.email) parts.push(`Contact: ${preChatData.email}`);
         if (preChatData.address) parts.push(`Address: ${preChatData.address}`);
         if (preChatData.service) parts.push(`Service: ${preChatData.service.replace("_", " ")}`);
-        body.message = `[${parts.join(", ")}] ${text}`;
+        body.message = `[${parts.join(", ")}] ${apiMessage}`;
       }
 
       const res = await fetch(`${API_BASE}/api/chat`, {
@@ -807,6 +1042,8 @@
     sseRetryCount = 0;
     preChatCompleted = false;
     preChatData = {};
+    firstMessageSent = false;
+    pendingPhotoUrl = null;
 
     // Show pre-chat form again
     const prechatEl = $("leadbot-prechat");

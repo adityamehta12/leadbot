@@ -5,6 +5,7 @@ class ChatRequest(BaseModel):
     session_id: str | None = None
     message: str
     tenant_id: str | None = None
+    source: str | None = None
 
 
 class TTSRequest(BaseModel):

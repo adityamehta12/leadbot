@@ -30,6 +30,10 @@ async def _cache_business(business: Business):
         "business_hours": business.business_hours,
         "service_config": business.service_config,
         "service_areas": business.service_areas,
+        "after_hours_message": business.after_hours_message,
+        "faq_entries": business.faq_entries,
+        "plan": business.plan,
+        "widget_language": business.widget_language,
     }
     await r.set(f"biz:{business.slug}", json.dumps(data), ex=CACHE_TTL)
 
@@ -80,6 +84,10 @@ async def get_business_config(db: AsyncSession, slug: str) -> dict | None:
         "business_hours": biz.business_hours,
         "service_config": biz.service_config,
         "service_areas": biz.service_areas,
+        "after_hours_message": biz.after_hours_message,
+        "faq_entries": biz.faq_entries,
+        "plan": biz.plan,
+        "widget_language": biz.widget_language,
     }
 
 

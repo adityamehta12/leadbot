@@ -27,6 +27,12 @@ TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 
+# ── Stripe Billing ──────────────────────────────────────────
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID", "")
+FREE_PLAN_LEAD_LIMIT = int(os.getenv("FREE_PLAN_LEAD_LIMIT", "50"))
+
 # ── Legacy single-tenant defaults (used as fallback) ────────
 BUSINESS_NAME = os.getenv("BUSINESS_NAME", "Sparkle Cleaning Co.")
 BUSINESS_COLOR = os.getenv("BUSINESS_COLOR", "#2563eb")
